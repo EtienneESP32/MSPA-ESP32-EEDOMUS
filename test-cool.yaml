@@ -1,0 +1,70 @@
+# Phase 3 : PONT COMPLET — clavier + SPA branchés. Voir TEST_PROTOCOLE.md.
+esphome:
+  name: test-cool
+  friendly_name: Test ESP32 - Phase 3 Pont
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# On reste en INFO pour ne pas ralentir le processeur
+logger:
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: "abc123"
+
+wifi:
+  ssid: "Maison"
+  password: "Maison/Babeuf/Besace@39"
+
+# --- CONFIGURATION UART (Vitesse maximale, pas de debug) ---
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    stop_bits: 1
+    rx_buffer_size: 512
+
+  # Clavier : Vert (Tx clavier)→RX 13, Noir (Rx clavier)←TX 14 (level shifter LV3/LV4)
+  - id: uart_clavier
+    tx_pin: 14
+    rx_pin: 13
+    baud_rate: 9600
+    stop_bits: 1
+    rx_buffer_size: 512
+
+# --- PONT UART : 1 byte SPA→clavier puis 1 byte clavier→SPA pour limiter la latence ---
+interval:
+  - interval: 1ms
+    then:
+      - lambda: |-
+          uint8_t c;
+          // Un octet SPA -> clavier
+          if (id(uart_spa).available() && id(uart_spa).read_byte(&c))
+            id(uart_clavier).write_byte(c);
+          // Un octet clavier -> SPA
+          if (id(uart_clavier).available() && id(uart_clavier).read_byte(&c))
+            id(uart_spa).write_byte(c);
+          // Répéter tant qu'il y a des données (réduit latence tout en vidant les buffers)
+          while (id(uart_spa).available()) {
+            if (id(uart_spa).read_byte(&c)) id(uart_clavier).write_byte(c);
+          }
+          while (id(uart_clavier).available()) {
+            if (id(uart_clavier).read_byte(&c)) id(uart_spa).write_byte(c);
+          }
+
+# --- LED STATUS ---
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO2
+      inverted: true
+    id: led_mspa
+    name: "ESP32 Vivant"

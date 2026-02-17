@@ -1,0 +1,62 @@
+# Sniffer / Audit UART MSPA
+# Usage : capturer toutes les trames (clavier ↔ spa) sans les modifier.
+# Même câblage que le contrôleur ; pas d’injection, uniquement lecture + logs (ou envoi vers un serveur).
+# Référence : docs/protocol_mspa.md, docs/test_plan.md
+#
+# À compléter avec ton code d’audit (ex. uart_debug, envoi HTTP des trames, etc.).
+# On peut le faire évoluer en parallèle du mspa-controller.yaml dans le même dépôt.
+
+esphome:
+  name: mspa-uart-sniffer
+  friendly_name: MSPA UART Sniffer
+
+esp32:
+  board: esp32dev
+  framework: { type: arduino }
+
+wifi:
+  networks:
+    - ssid: "l'escalade-secours"
+      password: "Qt51HhAz"
+  ap: { ssid: "MSPA-SNIFFER-RECOVERY" }
+
+ota:
+  platform: esphome
+
+logger:
+  level: DEBUG
+  baud_rate: 115200
+
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    debug:
+      direction: BOTH
+      after: { bytes: 4 }
+      sequence:
+        - lambda: UARTDebug::log_hex(direction, bytes, ':');
+  - id: uart_clavier
+    tx_pin: 13
+    rx_pin: 14
+    baud_rate: 9600
+    debug:
+      direction: BOTH
+      after: { bytes: 4 }
+      sequence:
+        - lambda: UARTDebug::log_hex(direction, bytes, ':');
+
+# Pont transparent : on relaie tout (comme le contrôleur) pour que le spa/clavier
+# fonctionnent, tout en laissant uart_debug capturer les trames.
+interval:
+  - interval: 1ms
+    then:
+      - lambda: |-
+          uint8_t c;
+          while (id(uart_spa).available()) {
+            if (id(uart_spa).read_byte(&c)) id(uart_clavier).write_byte(c);
+          }
+          while (id(uart_clavier).available()) {
+            if (id(uart_clavier).read_byte(&c)) id(uart_spa).write_byte(c);
+          }

@@ -1,0 +1,16 @@
+# ESPHome
+.esphome/
+*.yaml.bak
+
+# Build / IDE
+.pio/
+.vscode/
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / captures (optionnel)
+*.log
+serial_capture_*.txt

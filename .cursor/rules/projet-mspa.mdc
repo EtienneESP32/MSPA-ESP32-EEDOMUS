@@ -1,0 +1,23 @@
+---
+description: Contexte du projet MSPA (ESP32, pont UART, protocole SPA, eedomus)
+alwaysApply: true
+---
+
+# Projet : Contrôleur MSPA (ESP32)
+
+## Objectifs
+- Pont UART "man-in-the-middle" entre clavier SPA et moteur MSPA (série D).
+- Pilotage via ESPHome + intégration eedomus (HTTP).
+- Publication sur GitHub ; code propre et pro.
+- Un second firmware "sniffer/audit" UART vit dans le même dépôt (capture trames avec eau, pompe, etc.).
+
+## Stack
+- **Matériel** : ESP32 (UART SPA: GPIO16 RX, GPIO17 TX ; UART clavier: GPIO14 RX, GPIO13 TX). Level shifter 5V/3.3V.
+- **Firmware** : ESPHome (YAML). Pas de code C++ custom pour l’instant.
+- **Doc** : `docs/` (protocole, spec logique, plan de tests). Référence pour tout changement de code.
+
+## Règles de travail
+- Toute modification de trames ou d’IDs doit être cohérente avec `docs/protocol_mspa.md`.
+- Comportement (lock, priorité, source de vérité) doit suivre `docs/logic_spec.md`.
+- Fichiers principaux : `esphome/mspa-controller.yaml` (contrôleur), `esphome/mspa-uart-sniffer.yaml` (audit). On peut travailler les deux en parallèle dans le même repo.
+- Réponses en français sauf noms techniques (IDs, noms de fichiers).
