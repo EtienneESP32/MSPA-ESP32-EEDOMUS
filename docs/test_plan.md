@@ -24,6 +24,9 @@
 - **Action** : Obstruer légèrement l’aspiration.
 - **Objectif** : Voir si erreur F1 remonte sur un ID dédié ou reste time-out interne clavier.
 
-## Sniffer UART
+## Sniffer UART (analyse protocole, avec ou sans eau)
 
-- Utiliser le firmware `mspa-uart-sniffer` pour capturer toutes les trames pendant les tests avec eau (pompe en route) et compléter le dictionnaire des IDs si nécessaire.
+- **Firmware** : `mspa-uart-sniffer` — pont transparent + décodage des trames (checksum, sens, ID).
+- **Logs** : chaque trame valide est loguée en clair (tag `mspa`) : `[SPA->CLAV]` / `[CLAV->SPA]`, hex, nom (Chauffage, Temp, Flags…), et pour IDs inconnus `ID=0x?? DATA=0x??`.
+- **Résultats (17/02/2026)** : Flags = **0x1A** uniquement ; UVC = **0x19**. Nouveaux IDs 0x08 (SPA→CLAV), 0x0D (CLAV→SPA). Détails dans `TEST_PROTOCOLE.md` et `docs/protocol_mspa.md`.
+- Utiliser le sniffer pendant les tests avec eau (Phase 2) pour affiner 0x08 et autres IDs si besoin.

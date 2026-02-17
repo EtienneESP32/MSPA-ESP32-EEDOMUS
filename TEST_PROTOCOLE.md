@@ -24,9 +24,17 @@ Les étapes ci‑dessous ont servi à valider le bus et le pont. Elles restent e
 
 ---
 
+## Résultats sniffer (17/02/2026) — **au sec** (sans eau)
+
+- **Flags** : états réels (pompe, chauffage, bulles) uniquement sur **0x1A** (pas de 0x00 observé).
+- **UVC** : commande/état sur **0x19** (pas de 0x07 observé).
+- **Nouveaux IDs** : 0x08 (SPA→CLAV, data 0x00, périodique) ; 0x0D (CLAV→SPA, data 0x00, dans le cycle poll du clavier).
+- **Comportement** : le clavier envoie un cycle de commandes (~toutes les 9 s) ; le SPA envoie 0x1A, 0x06 (temp), 0x08 en continu. Les « états réels qui bougent seuls » = trafic normal (SPA + poll clavier).
+
+**À refaire avec eau** (dans quelques jours) : pompe/chauffage/bulles en conditions réelles ; certaines valeurs (0x1A, 0x06, 0x08…) pourront changer et affiner la compréhension.
+
 ## Suite : ce qui reste à affiner
 
 - **Avec eau** : confirmer les IDs et flags en conditions réelles (pompe, chauffage, bulles) — voir `docs/test_plan.md` (Phase 2).
-- **Sniffer / catch** : utiliser `mspa-uart-sniffer.yaml` ou le firmware « catch » pour enregistrer les trames avec eau et compléter `docs/protocol_mspa.md` si de nouveaux IDs apparaissent (ex. 0x00 vs 0x1A pour les flags, 0x07 vs 0x19 pour l’UVC).
 
 Documentation détaillée : `docs/protocol_mspa.md`, `docs/logic_spec.md`, `docs/test_plan.md`.

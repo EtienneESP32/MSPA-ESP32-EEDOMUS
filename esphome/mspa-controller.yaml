@@ -7,6 +7,13 @@ substitutions:
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
   eedomus_api_secret: !secret eedomus_api_secret
+  periph_filtration: !secret eedomus_periph_filtration
+  periph_chauffage: !secret eedomus_periph_chauffage
+  periph_bulles: !secret eedomus_periph_bulles
+  periph_uvc: !secret eedomus_periph_uvc
+  periph_verrouillage: !secret eedomus_periph_verrouillage
+  periph_consigne_temp: !secret eedomus_periph_consigne_temp
+  periph_temp_eau: !secret eedomus_periph_temp_eau
 
 esphome:
   name: mspa-final-controller
@@ -35,6 +42,11 @@ esphome:
                 if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
                 else if (rid == 0x02 && rd != last_c_f) { id(sw_f).publish_state(rd == 0x01); last_c_f = rd; }
                 else if (rid == 0x19 && rd != last_c_uvc) { id(sw_uvc).publish_state(rd == 0x01); last_c_uvc = rd; }
+                else if (rid == 0x04) {
+                  float cons = rd / 2.0f;
+                  id(consigne_setpoint).publish_state(cons);
+                  id(push_consigne_eedomus).execute(cons);
+                }
                 else if (rid == 0x03 && rd != last_c_b) {
                   if (rd == 0) id(sel_b).publish_state("Arret");
                   else if (rd == 1) id(sel_b).publish_state("Niveau1");
@@ -66,9 +78,14 @@ esphome:
             if (s_idx == 4 && s_buf[0] == 0xA5) {
               if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
               if (s_buf[1] == 0x1A) {
-                 id(f_st).publish_state(s_buf[2] & 0x01);
-                 id(h_st).publish_state(s_buf[2] & 0x02);
-                 id(b_st).publish_state(s_buf[2] & 0x04);
+                 uint8_t d = s_buf[2];
+                 static uint8_t last_1a = 0xFF;
+                 if (d != last_1a) {
+                   last_1a = d;
+                   id(f_st).publish_state(d & 0x01);
+                   id(h_st).publish_state(d & 0x02);
+                   id(b_st).publish_state(d & 0x04);
+                 }
               }
               s_idx = 0;
             } else if (s_idx >= 4) s_idx = 0;
@@ -87,6 +104,9 @@ wifi:
 ota:
   platform: esphome
 
+# API native : permet esphome logs --device <IP> pour récupérer les logs à distance (sans copier/coller)
+api:
+
 globals:
   - id: eedomus_enabled
     type: bool
@@ -98,6 +118,12 @@ globals:
     type: float
     restore_value: false
   - id: last_temp_push_time_ms
+    type: uint32_t
+    restore_value: false
+  - id: last_consigne_pushed
+    type: float
+    restore_value: false
+  - id: last_consigne_push_time_ms
     type: uint32_t
     restore_value: false
 
@@ -181,32 +207,49 @@ script:
                   char url[256];
                   sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
                   return url;
+  - id: push_consigne_eedomus
+    mode: single
+    parameters:
+      p_val: float
+    then:
+      - lambda: |-
+          if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+          float cur = p_val;
+          uint32_t now = millis();
+          float last_val = id(last_consigne_pushed);
+          uint32_t last = id(last_consigne_push_time_ms);
+          if (last == 0) last = 1;
+          if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+            id(last_consigne_pushed) = cur;
+            id(last_consigne_push_time_ms) = now;
+            id(push_temp_eedomus).execute(${periph_consigne_temp}, cur);
+          }
 
 switch:
   - platform: template
     name: "Filtration"
     id: sw_f
     optimistic: true
-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 100 } ] }
-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 0 } ] }
+    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 100 } ] }
+    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 0 } ] }
   - platform: template
     name: "Chauffage"
     id: sw_h
     optimistic: true
-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 100 } ] }
-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 0 } ] }
+    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 100 } ] }
+    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 0 } ] }
   - platform: template
     name: "UVC"
     id: sw_uvc
     optimistic: true
-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 100 } ] }
-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 0 } ] }
+    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 100 } ] }
+    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 0 } ] }
   - platform: template
     name: "Verrouillage clavier"
     id: lock
     optimistic: true
-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 100 } ] }
-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 0 } ] }
+    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 100 } ] }
+    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 0 } ] }
 
 select:
   - platform: template
@@ -221,7 +264,27 @@ select:
             if (x == "Niveau1") val = 1;
             else if (x == "Niveau2") val = 2;
             else if (x == "Niveau3") val = 3;
-            id(push_eedomus).execute(3527371, val);
+            id(push_eedomus).execute(${periph_bulles}, val);
+
+number:
+  - platform: template
+    name: "Température consigne"
+    id: consigne_setpoint
+    min_value: 20
+    max_value: 40
+    step: 0.5
+    unit_of_measurement: "°C"
+    set_action:
+      - lambda: |-
+          uint8_t frame[4];
+          frame[0] = 0xA5;
+          frame[1] = 0x04;
+          frame[2] = (uint8_t)(x * 2.0f);
+          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
+          id(uart_spa).write_array(frame, 4);
+    on_value:
+      then:
+        - lambda: id(push_consigne_eedomus).execute(x);
 
 sensor:
   - platform: template
@@ -242,7 +305,7 @@ sensor:
             if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
               id(last_temp_pushed) = cur;
               id(last_temp_push_time_ms) = now;
-              id(push_temp_eedomus).execute(3527361, cur);
+              id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
             }
 
 binary_sensor:

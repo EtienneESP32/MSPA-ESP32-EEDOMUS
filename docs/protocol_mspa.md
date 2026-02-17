@@ -1,6 +1,6 @@
 # Reverse Engineering : Protocole MSPA (Série D)
 
-**Statut** : En cours (phase de capture des commandes)  
+**Statut** : Validé par sniffer (17/02/2026) — IDs 0x00/0x1A et 0x07/0x19 tranchés.  
 **Matériel** : ESP32 en "Man-in-the-Middle" entre contrôleur (moteur) et clavier.
 
 ## Architecture des communications
@@ -30,6 +30,7 @@
 | Consigne   | 04       | Temp×2          | A5 04 4E F7  |
 | UVC        | 19       | 01 / 00         | A5 19 01 BF  |
 | Sanitize   | 15       | 01              | A5 15 01 BB  |
+| (poll/touche) | 0D    | 00              | A5 0D 00 B2  |
 
 **Logiques combinatoires** : Chauffage (01) force 02 à 01. UVC (19) s’accompagne de 02 et 15.
 
@@ -38,7 +39,8 @@
 | Fonction     | ID (Hex) | Interprétation |
 |--------------|----------|----------------|
 | Température  | 06       | Valeur / 2 = °C (demi-degrés) |
-| Flags        | 1A       | Bitmask : 01=Pompe, 02=Chauffage, 08=Repos ; 03=Pompe+Chauffage |
+| Flags        | 1A       | Bitmask : 01=Pompe, 02=Chauffage, 04=Bulles, 08=Repos ; états réels SPA uniquement sur 0x1A (pas 0x00) |
+| (inconnu)    | 08       | SPA→CLAV, data 0x00 observé en continu — rôle à préciser |
 
 ## Température (demi-degrés)
 
@@ -48,3 +50,4 @@
 ## Référence
 
 - Synthèse consolidée 15/02/2026. ID 02 = Filtration (priorité basse), ID 01 = Chauffage (priorité haute).
+- **Sniffer 17/02/2026 (au sec)** : UVC confirmé **0x19** (pas 0x07). Flags confirmés **0x1A** (pas 0x00). Nouveaux IDs 0x08 (SPA→CLAV), 0x0D (CLAV→SPA, cycle poll clavier). Session avec eau à prévoir pour affiner.

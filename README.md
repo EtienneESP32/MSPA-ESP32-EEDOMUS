@@ -33,18 +33,18 @@ Les firmwares dans `esphome/` utilisent des **secrets** (WiFi, eedomus). Aucun m
 ## Compilation / flash
 
 ```bash
-# Contrôleur – OTA (remplace IP si besoin)
-py -m esphome run esphome/mspa-controller.yaml --device 192.168.1.171
+# Contrôleur – OTA (remplacer <IP_ESP> par l’IP actuelle de l’ESP, ou utiliser le port série)
+py -m esphome run esphome/mspa-controller.yaml --device <IP_ESP>
 
 # Contrôleur – USB (si OTA indisponible)
 py -m esphome run esphome/mspa-controller.yaml --device COM3
 
 # Sniffer
-py -m esphome run esphome/mspa-uart-sniffer.yaml --device 192.168.1.171
+py -m esphome run esphome/mspa-uart-sniffer.yaml --device <IP_ESP>
 # ou --device COM3
 ```
 
-*L’IP de l’ESP peut changer (DHCP) ; à adapter selon le réseau.*
+Aucune IP ni donnée sensible dans le dépôt : l’ESP est en DHCP ; adapter `<IP_ESP>` ou le port COM selon ton réseau.
 
 ## Licence
 

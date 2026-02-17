@@ -1,5 +1,5 @@
-# Sniffer / Audit UART MSPA
-# Usage : capturer toutes les trames (clavier ↔ spa) sans les modifier.
+# Sniffer / Audit UART MSPA – analyse des trames pour valider le protocole
+# Pont transparent (clavier <-> SPA) + décodage de chaque trame 0xA5 : checksum, sens, ID connu/inconnu.
 # Même câblage que le contrôleur ; pas d’injection, uniquement lecture + logs (ou envoi vers un serveur).
 # Référence : docs/protocol_mspa.md, docs/test_plan.md
 #
@@ -23,9 +23,23 @@ wifi:
 ota:
   platform: esphome
 
+# Pour récupérer les logs à distance (esphome logs --device <IP>)
+api:
+
+# UI : voir la dernière trame décodée en direct (pas de surcharge notable)
+web_server:
+captive_portal:
+
+# Dernière trame décodée, mise à jour à chaque trame (affichée dans l'UI)
+text_sensor:
+  - platform: template
+    name: "Dernière trame"
+    id: last_trame
+    icon: "mdi:code-braces"
+
 logger:
-  level: DEBUG
-  baud_rate: 115200
+  level: INFO
+  baud_rate: 0
 
 uart:
   - id: uart_spa
@@ -36,7 +50,38 @@ uart:
       direction: BOTH
       after: { bytes: 4 }
       sequence:
-        - lambda: UARTDebug::log_hex(direction, bytes, ':');
+        - lambda: |-
+            if (bytes.size() != 4 || bytes[0] != 0xA5) {
+              UARTDebug::log_hex(direction, bytes, ' ');
+              return;
+            }
+            uint8_t id = bytes[1], data = bytes[2], cs = bytes[3];
+            uint8_t expect_cs = (0xA5 + id + data) & 0xFF;
+            const char* dir_str = (direction == 0) ? "SPA->CLAV" : "CLAV->SPA";
+            char buf[96];
+            char extra[32] = "";
+            if (expect_cs != cs) {
+              snprintf(buf, sizeof(buf), "[%s] A5 %02X %02X %02X (checksum ERR)", dir_str, id, data, cs);
+              ESP_LOGI("mspa", "%s", buf);
+              id(last_trame).publish_state(std::string(buf));
+              return;
+            }
+            const char* name = "?";
+            if (id == 0x01) { name = "Chauffage"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x02) { name = "Filtration"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x03) { name = "Bulles"; snprintf(extra, sizeof(extra), " lvl=%u", data); }
+            else if (id == 0x04) { name = "Consigne"; snprintf(extra, sizeof(extra), " %.1fC", data / 2.0f); }
+            else if (id == 0x06) { name = "Temp"; snprintf(extra, sizeof(extra), " %.1fC", data / 2.0f); }
+            else if (id == 0x15) { name = "Sanitize"; }
+            else if (id == 0x19) { name = "UVC"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x1A) {
+              name = "Flags";
+              snprintf(extra, sizeof(extra), " 0x%02X (Pump=%u Heat=%u Idle=%u)", data, (data>>0)&1, (data>>1)&1, (data>>3)&1);
+            }
+            else { snprintf(extra, sizeof(extra), " ID=0x%02X DATA=0x%02X", id, data); }
+            snprintf(buf, sizeof(buf), "[%s] A5 %02X %02X %02X  %s%s", dir_str, id, data, cs, name, extra);
+            ESP_LOGI("mspa", "%s", buf);
+            id(last_trame).publish_state(std::string(buf));
   - id: uart_clavier
     tx_pin: 13
     rx_pin: 14
@@ -45,7 +90,38 @@ uart:
       direction: BOTH
       after: { bytes: 4 }
       sequence:
-        - lambda: UARTDebug::log_hex(direction, bytes, ':');
+        - lambda: |-
+            if (bytes.size() != 4 || bytes[0] != 0xA5) {
+              UARTDebug::log_hex(direction, bytes, ' ');
+              return;
+            }
+            uint8_t id = bytes[1], data = bytes[2], cs = bytes[3];
+            uint8_t expect_cs = (0xA5 + id + data) & 0xFF;
+            const char* dir_str = (direction == 0) ? "CLAV->SPA" : "SPA->CLAV";
+            char buf[96];
+            char extra[32] = "";
+            if (expect_cs != cs) {
+              snprintf(buf, sizeof(buf), "[%s] A5 %02X %02X %02X (checksum ERR)", dir_str, id, data, cs);
+              ESP_LOGI("mspa", "%s", buf);
+              id(last_trame).publish_state(std::string(buf));
+              return;
+            }
+            const char* name = "?";
+            if (id == 0x01) { name = "Chauffage"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x02) { name = "Filtration"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x03) { name = "Bulles"; snprintf(extra, sizeof(extra), " lvl=%u", data); }
+            else if (id == 0x04) { name = "Consigne"; snprintf(extra, sizeof(extra), " %.1fC", data / 2.0f); }
+            else if (id == 0x06) { name = "Temp"; snprintf(extra, sizeof(extra), " %.1fC", data / 2.0f); }
+            else if (id == 0x15) { name = "Sanitize"; }
+            else if (id == 0x19) { name = "UVC"; snprintf(extra, sizeof(extra), " %s", data ? "ON" : "OFF"); }
+            else if (id == 0x1A) {
+              name = "Flags";
+              snprintf(extra, sizeof(extra), " 0x%02X (Pump=%u Heat=%u Idle=%u)", data, (data>>0)&1, (data>>1)&1, (data>>3)&1);
+            }
+            else { snprintf(extra, sizeof(extra), " ID=0x%02X DATA=0x%02X", id, data); }
+            snprintf(buf, sizeof(buf), "[%s] A5 %02X %02X %02X  %s%s", dir_str, id, data, cs, name, extra);
+            ESP_LOGI("mspa", "%s", buf);
+            id(last_trame).publish_state(std::string(buf));
 
 # Pont transparent : on relaie tout (comme le contrôleur) pour que le spa/clavier
 # fonctionnent, tout en laissant uart_debug capturer les trames.
