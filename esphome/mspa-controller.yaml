@@ -1,8 +1,25 @@
 # Contrôleur MSPA – Pont UART + eedomus
 # Référence : docs/protocol_mspa.md, docs/logic_spec.md
+# Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
+
+substitutions:
+  eedomus_enabled: !secret eedomus_enabled
+  eedomus_host: !secret eedomus_host
+  eedomus_api_user: !secret eedomus_api_user
+  eedomus_api_secret: !secret eedomus_api_secret
 
 esphome:
   name: mspa-final-controller
+  on_boot:
+    - lambda: |-
+        id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+        id(eedomus_reachable) = false;
+    - delay: 3s
+    - if:
+        condition:
+          lambda: 'return id(eedomus_enabled);'
+        then:
+          - script.execute: probe_eedomus
   on_loop:
     then:
       - lambda: |-
@@ -63,21 +80,45 @@ esp32:
 
 wifi:
   networks:
-    - ssid: "l'escalade-secours"
-      password: "Qt51HhAz"
-  ap: { ssid: "MSPA-RECOVERY" }
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap: { ssid: !secret ap_ssid }
 
 ota:
   platform: esphome
 
+globals:
+  - id: eedomus_enabled
+    type: bool
+    restore_value: false
+  - id: eedomus_reachable
+    type: bool
+    restore_value: false
+  - id: last_temp_pushed
+    type: float
+    restore_value: false
+  - id: last_temp_push_time_ms
+    type: uint32_t
+    restore_value: false
+
 http_request:
   useragent: "Mozilla/5.0"
-  timeout: 5s
+  timeout: 2s
   verify_ssl: false
 
 logger:
   level: INFO
   baud_rate: 0
+
+# Test eedomus toutes les 30s (évite envois si box injoignable)
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled);'
+          then:
+            - script.execute: probe_eedomus
 
 web_server:
   port: 80
@@ -93,17 +134,37 @@ uart:
     baud_rate: 9600
 
 script:
+  # Test reachabilité eedomus (GET léger toutes les 30s)
+  - id: probe_eedomus
+    mode: single
+    then:
+      - http_request.get:
+          url: !lambda |-
+            static char url[64];
+            sprintf(url, "http://%s/api/", "${eedomus_host}");
+            return url;
+          on_response:
+            then:
+              - lambda: 'id(eedomus_reachable) = true;'
+          on_error:
+            then:
+              - lambda: 'id(eedomus_reachable) = false;'
+
   - id: push_eedomus
     mode: queued
     parameters:
       p_id: int
       p_val: int
     then:
-      - http_request.get:
-          url: !lambda |-
-            char url[256];
-            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
-            return url;
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
+                  return url;
 
   - id: push_temp_eedomus
     mode: single
@@ -111,33 +172,37 @@ script:
       p_id: int
       p_val: float
     then:
-      - http_request.get:
-          url: !lambda |-
-            char url[256];
-            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
-            return url;
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+                  return url;
 
 switch:
   - platform: template
-    name: "sw_f"
+    name: "Filtration"
     id: sw_f
     optimistic: true
     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 100 } ] }
     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 0 } ] }
   - platform: template
-    name: "sw_h"
+    name: "Chauffage"
     id: sw_h
     optimistic: true
     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 100 } ] }
     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 0 } ] }
   - platform: template
-    name: "sw_uvc"
+    name: "UVC"
     id: sw_uvc
     optimistic: true
     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 100 } ] }
     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 0 } ] }
   - platform: template
-    name: "lock"
+    name: "Verrouillage clavier"
     id: lock
     optimistic: true
     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 100 } ] }
@@ -145,7 +210,7 @@ switch:
 
 select:
   - platform: template
-    name: "sel_b"
+    name: "Mode bulles"
     id: sel_b
     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
     optimistic: true
@@ -160,21 +225,33 @@ select:
 
 sensor:
   - platform: template
-    name: "temp"
+    name: "Température eau"
     id: cur_temp
     unit_of_measurement: "°C"
     update_interval: never
     on_value:
       then:
-        - script.execute: { id: push_temp_eedomus, p_id: 3527361, p_val: !lambda "return x;" }
+        # Throttle : max 1 envoi / 60s ou si variation >= 0.5°C (évite saturation file)
+        - lambda: |-
+            if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+            float cur = x;
+            uint32_t now = millis();
+            uint32_t last = id(last_temp_push_time_ms);
+            float last_val = id(last_temp_pushed);
+            if (last == 0) { last = 1; }
+            if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+              id(last_temp_pushed) = cur;
+              id(last_temp_push_time_ms) = now;
+              id(push_temp_eedomus).execute(3527361, cur);
+            }
 
 binary_sensor:
   - platform: template
-    name: "stat_f"
+    name: "État réel filtration"
     id: f_st
   - platform: template
-    name: "stat_h"
+    name: "État réel chauffage"
     id: h_st
   - platform: template
-    name: "stat_b"
+    name: "État réel bulles"
     id: b_st

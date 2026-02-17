@@ -8,8 +8,8 @@ esp32:
     type: arduino
 
 wifi:
-  ssid: "Maison"
-  password: "Maison/Babeuf/Besace@39"
+  ssid: "MY_WIFI_SSID"
+  password: "MY_WIFI_PASSWORD"
 
 logger:
   level: INFO
@@ -17,7 +17,7 @@ logger:
 api: {}
 ota:
   platform: esphome
-  password: "abc123"
+  password: "MY_OTA_PASSWORD"
 
 web_server:
   port: 80

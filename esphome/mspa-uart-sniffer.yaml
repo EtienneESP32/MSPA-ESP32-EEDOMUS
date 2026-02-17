@@ -16,8 +16,8 @@ esp32:
 
 wifi:
   networks:
-    - ssid: "l'escalade-secours"
-      password: "Qt51HhAz"
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
   ap: { ssid: "MSPA-SNIFFER-RECOVERY" }
 
 ota:

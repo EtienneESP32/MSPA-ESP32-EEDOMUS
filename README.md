@@ -22,17 +22,29 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Règles logiques** : `docs/logic_spec.md` (priorité, lock, source de vérité)
 - **Tests** : `docs/test_plan.md` (phases avec/sans eau, sniffer)
 
+## Première utilisation (secrets)
+
+Les firmwares dans `esphome/` utilisent des **secrets** (WiFi, eedomus). Aucun mot de passe n’est dans le dépôt.
+
+1. Copie `esphome/secrets.yaml.example` en **`esphome/secrets.yaml`**
+2. Ouvre `esphome/secrets.yaml` et remplace les valeurs par les tiennes (SSID, mot de passe WiFi, optionnellement eedomus)
+3. **Ne committe jamais** `secrets.yaml` (il est dans `.gitignore`)
+
 ## Compilation / flash
 
 ```bash
-# Contrôleur (usage normal)
-esphome compile esphome/mspa-controller.yaml
-esphome run   esphome/mspa-controller.yaml --device COM3
+# Contrôleur – OTA (remplace IP si besoin)
+py -m esphome run esphome/mspa-controller.yaml --device 192.168.1.171
 
-# Sniffer (capture des trames uniquement)
-esphome compile esphome/mspa-uart-sniffer.yaml
-esphome run   esphome/mspa-uart-sniffer.yaml --device COM3
+# Contrôleur – USB (si OTA indisponible)
+py -m esphome run esphome/mspa-controller.yaml --device COM3
+
+# Sniffer
+py -m esphome run esphome/mspa-uart-sniffer.yaml --device 192.168.1.171
+# ou --device COM3
 ```
+
+*L’IP de l’ESP peut changer (DHCP) ; à adapter selon le réseau.*
 
 ## Licence
 
