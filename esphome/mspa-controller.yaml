@@ -137,7 +137,8 @@ ota:
 safe_mode:
   reboot_timeout: 10min
 
-# API native : logs à distance. reboot_timeout: 0s = pas de reboot si aucun client (eedomus utilise HTTP).
+# API native ESPHome (port 3232) : logs, OTA. Eedomus n'utilise pas l'API : il pilote l'ESP via HTTP (port 80).
+# reboot_timeout: 0s = pas de reboot quand aucun client API (eedomus utilise le serveur web).
 api:
   reboot_timeout: 0s
 

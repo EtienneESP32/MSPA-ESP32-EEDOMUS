@@ -12,7 +12,7 @@ Après une perte des fichiers sources (restauration depuis Git), le code du **co
 
 - **Boot** : consigne initiale 40 °C ; délai 90 s avant le premier probe eedomus (UI + sockets stables).
 - **Stabilité** :
-  - `api: reboot_timeout: 0s` (plus de reboot « no clients » avec eedomus en HTTP).
+  - `api: reboot_timeout: 0s` (plus de reboot « no clients » ; eedomus pilote l’ESP via HTTP / serveur web, pas l’API native).
   - `wifi: power_save_mode: none` ; `ota: version: 2` ; `safe_mode: reboot_timeout: 10min`.
   - `http_request: timeout: 1s` ; probe eedomus 120 s si joignable (dev avec UI), 5 min si injoignable.
 - **Boutons (Filtration, Chauffage, UVC)** : écriture UART directe depuis les actions des switches (trame 0xA5 envoyée au SPA).

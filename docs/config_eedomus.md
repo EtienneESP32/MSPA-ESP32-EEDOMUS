@@ -2,7 +2,7 @@
 
 **Pour un dépôt public (GitHub)** : aucune IP, aucun ID eedomus ni clé API dans ce fichier. Les valeurs réelles se configurent en local (Eedomus + `esphome/secrets.yaml`).
 
-L’ESP envoie les états vers Eedomus en **push** (API Eedomus). Dans Eedomus : pas d’URL à saisir dans les « Valeurs », pas de XPATH ; méthode HTTP par défaut.
+L’ESP envoie les états vers Eedomus en **push** (API Eedomus, HTTP). Pour piloter l’ESP depuis Eedomus : Eedomus utilise le **serveur web** de l’ESP (HTTP, port 80), pas l’API native ESPHome (port 3232). Dans Eedomus : pas d’URL à saisir dans les « Valeurs » pour le push ; pour les commandes vers l’ESP, les URLs pointent vers l’IP de l’ESP (voir ci‑dessous).
 
 ---
 
@@ -37,9 +37,9 @@ Le code (`esphome/mspa-controller.yaml`) pousse une entité ESP vers **un** pér
 
 ---
 
-## URLs API ESP (piloter l’ESP depuis Eedomus)
+## Piloter l’ESP depuis Eedomus (HTTP, pas l’API native)
 
-Les chemins utilisent les **id** définis dans `esphome/mspa-controller.yaml` (switches, select, number).
+Eedomus appelle l’ESP via **HTTP** (serveur web, port 80), pas via l’API native ESPHome (port 3232). Les URLs ci‑dessous sont des requêtes HTTP GET/POST vers le serveur web de l’ESP.
 
 | Entité                 | id (dans le YAML) | Exemple d’URL (remplacer &lt;IP_ESP&gt;) |
 |------------------------|-------------------|------------------------------------------|

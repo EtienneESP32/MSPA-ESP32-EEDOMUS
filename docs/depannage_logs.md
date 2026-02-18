@@ -22,8 +22,8 @@ E (603204) HTTP_CLIENT: Connection failed, sock < 0
 ### Causes possibles
 
 1. **eedomus injoignable** : box éteinte, autre réseau, pare-feu, ou IP incorrecte dans `secrets.yaml`. Dans ce cas l’ESP passe en mode « unreachable » et le probe s’exécute toutes les **5 minutes** → ces messages reviennent toutes les 5 min.
-2. **Manque de sockets côté ESP** : trop de connexions (UI ouverte, API, requêtes HTTP). L’ESP a un nombre limité de sockets ; si la limite est atteinte, « Failed to create socket » apparaît. En **prod sans UI** (`web_server` commenté), la pression est moindre.
-3. **Moment du probe** : au boot, le premier probe a lieu après 90 s. Si à ce moment les sockets sont déjà saturés (UI + API), le premier probe peut échouer ; les suivants (120 s ou 5 min) réessaieront.
+2. **Manque de sockets côté ESP** : trop de connexions (UI ouverte, requêtes HTTP). Eedomus n’utilise pas l’API native ESPHome (port 3232) mais le **serveur web** (port 80) ; l’ESP a un nombre limité de sockets. En **prod sans UI** (`web_server` commenté), la pression est moindre.
+3. **Moment du probe** : au boot, le premier probe a lieu après 90 s. Si à ce moment les sockets sont déjà saturés (UI, serveur web), le premier probe peut échouer ; les suivants (120 s ou 5 min) réessaieront.
 
 ### Que faire
 
