@@ -59,7 +59,8 @@ L’ESP partage un pool limité de sockets entre : **API** (port 3232), **serveu
 
 ### Comportement côté navigateur
 
-- Garder **un seul onglet** ouvert sur l’UI du contrôleur ; fermer l’onglet quand tu ne t’en sers pas.
+- **Flasher en OTA** : fermer l’onglet de l’UI du contrôleur avant de lancer `esphome run ... --device <IP>` ; l’upload passe alors sans saturation.
+- Garder **un seul onglet** ouvert sur l’UI quand tu l’utilises ; fermer l’onglet quand tu ne t’en sers pas.
 - Éviter les rafraîchissements répétés (F5) : chaque rechargement rouvre plusieurs connexions.
 
 ### Si la saturation persiste
