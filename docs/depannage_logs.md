@@ -46,6 +46,31 @@ E (76052) httpd: httpd_accept_conn: error in accept (23)
 
 ---
 
+## Améliorer le responsive de l’UI et limiter la saturation
+
+L’ESP partage un pool limité de sockets entre : **API** (port 3232), **serveur web** (port 80, UI + commandes eedomus), et **requêtes HTTP sortantes** (probe / push eedomus). Quand l’UI est ouverte, les requêtes du dashboard et les probes peuvent saturer ce pool (errno 23, Failed to create socket).
+
+### Réglages déjà en place dans le YAML
+
+- **API** : `max_connections: 4` et `listen_backlog: 2` pour libérer des sockets au profit du serveur web et des requêtes eedomus (par défaut ESP32 = 8 connexions API).
+- **Boot** : délai 90 s avant le premier probe pour laisser web_server/API se stabiliser.
+- **Probe** : 120 s si eedomus joignable, 5 min si injoignable ; `http_request.timeout: 1s`.
+- **Boucle UART** : `max_trames = 2` et deux `yield()` pour ne pas bloquer le réseau.
+
+### Comportement côté navigateur
+
+- Garder **un seul onglet** ouvert sur l’UI du contrôleur ; fermer l’onglet quand tu ne t’en sers pas.
+- Éviter les rafraîchissements répétés (F5) : chaque rechargement rouvre plusieurs connexions.
+
+### Si la saturation persiste
+
+- **Augmenter l’intervalle du probe** quand eedomus est joignable : dans `mspa-controller.yaml`, remplacer `120s` par `180s` (ou `5min`) dans l’interval du probe (section `interval:`). Tu réduis la fréquence des requêtes sortantes au prix d’un état eedomus un peu moins réactif.
+- **Prod sans commandes eedomus → ESP** : si tu n’utilises que le push ESP → eedomus et pas les commandes depuis eedomus vers l’ESP, tu peux commenter le bloc `web_server` pour libérer RAM/sockets (eedomus ne pourra plus appeler les URLs du type `http://<IP_ESP>/switch/...`).
+
+Le composant `web_server` d’ESPHome ne propose pas d’option pour limiter le nombre de connexions ; les leviers sont donc la réduction des connexions API (déjà fait), le comportement utilisateur (un onglet, pas de refresh excessif) et éventuellement un probe moins fréquent.
+
+---
+
 ## Références
 
 - Configuration eedomus : `docs/config_eedomus.md`

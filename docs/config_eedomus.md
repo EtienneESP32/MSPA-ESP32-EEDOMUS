@@ -47,7 +47,7 @@ Eedomus appelle l’ESP via **HTTP** (serveur web, port 80), pas via l’API nat
 | Chauffage              | sw_h              | `http://<IP_ESP>/switch/chauffage/turn_on` ou `turn_off` |
 | UVC                    | sw_uvc            | `http://<IP_ESP>/switch/uvc/turn_on` ou `turn_off` |
 | Verrouillage clavier   | lock              | `http://<IP_ESP>/switch/verrouillage_clavier/turn_on` ou `turn_off` |
-| Mode bulles            | sel_b             | `http://<IP_ESP>/select/mode_bulles/set?option=Arret` (ou Niveau1, Niveau2, Niveau3) |
+| Mode bulles            | sel_b             | `http://<IP_ESP>/select/mode_bulles/set?option=Arret` (ou Niveau1, Niveau2, Niveau3). **Important** : utiliser exactement ces valeurs (Arret sans accent, Niveau1/2/3 sans espace) dans les URLs eedomus. |
 | Température consigne   | consigne_setpoint | `http://<IP_ESP>/number/consigne_setpoint/set?value=38` |
 
 **IP** : utiliser l’IP de l’ESP (fixe via `secrets.yaml` + `manual_ip`, ou DHCP). Ne pas mettre d’IP en dur dans le dépôt.

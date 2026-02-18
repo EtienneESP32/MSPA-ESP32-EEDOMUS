@@ -13,6 +13,7 @@ Après une perte des fichiers sources (restauration depuis Git), le code du **co
 - **Boot** : consigne initiale 40 °C ; délai 90 s avant le premier probe eedomus (UI + sockets stables).
 - **Stabilité** :
   - `api: reboot_timeout: 0s` (plus de reboot « no clients » ; eedomus pilote l’ESP via HTTP / serveur web, pas l’API native).
+  - `api: max_connections: 4`, `listen_backlog: 2` pour libérer des sockets (UI + requêtes eedomus, moins de saturation).
   - `wifi: power_save_mode: none` ; `ota: version: 2` ; `safe_mode: reboot_timeout: 10min`.
   - `http_request: timeout: 1s` ; probe eedomus 120 s si joignable (dev avec UI), 5 min si injoignable.
 - **Boutons (Filtration, Chauffage, UVC)** : écriture UART directe depuis les actions des switches (trame 0xA5 envoyée au SPA).
@@ -42,6 +43,7 @@ Références : `docs/protocol_mspa.md`, `docs/test_plan.md`.
 ### Documentation
 
 - **`docs/secrets_reference.md`** : liste de toutes les clés utilisées dans le code (contrôleur + sniffer), avec fichier et usage. À utiliser pour recréer `secrets.yaml` en local.
+- **`docs/depannage_logs.md`** : section « Améliorer le responsive de l’UI et limiter la saturation » (réglages API, un seul onglet, option probe 180s, prod sans web_server).
 - **`esphome/secrets.yaml.example`** : modèle avec toutes les clés (dont optionnel IP fixe) ; renvoi vers `docs/secrets_reference.md`.
 - **README.md** : mise à jour pour refléter la doc et l’option IP fixe.
 
