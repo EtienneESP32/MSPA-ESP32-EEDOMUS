@@ -21,6 +21,8 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Protocole** : `docs/protocol_mspa.md` (structure des trames, IDs, checksum)
 - **Règles logiques** : `docs/logic_spec.md` (priorité, lock, source de vérité)
 - **Tests** : `docs/test_plan.md` (phases avec/sans eau, sniffer)
+- **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
+- **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
 
 ## Première utilisation (secrets)
 
@@ -44,7 +46,7 @@ py -m esphome run esphome/mspa-uart-sniffer.yaml --device <IP_ESP>
 # ou --device COM3
 ```
 
-Aucune IP ni donnée sensible dans le dépôt : l’ESP est en DHCP ; adapter `<IP_ESP>` ou le port COM selon ton réseau.
+L’IP de l’ESP peut être en DHCP ou fixe (voir `secrets.yaml.example` et `manual_ip` dans le contrôleur). Adapter `<IP_ESP>` ou le port COM selon ton réseau. Aucune donnée sensible n’est dans le dépôt.
 
 ## Licence
 
