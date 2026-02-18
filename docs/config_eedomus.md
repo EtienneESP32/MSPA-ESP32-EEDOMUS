@@ -43,11 +43,21 @@ Les chemins utilisent les **id** définis dans `esphome/mspa-controller.yaml` (s
 
 | Entité                 | id (dans le YAML) | Exemple d’URL (remplacer &lt;IP_ESP&gt;) |
 |------------------------|-------------------|------------------------------------------|
-| Filtration             | sw_f              | `http://<IP_ESP>/switch/sw_f/turn_on` ou `turn_off` |
-| Chauffage              | sw_h              | `http://<IP_ESP>/switch/sw_h/turn_on` ou `turn_off` |
-| UVC                    | sw_uvc            | `http://<IP_ESP>/switch/sw_uvc/turn_on` ou `turn_off` |
-| Verrouillage clavier   | lock              | `http://<IP_ESP>/switch/lock/turn_on` ou `turn_off` |
-| Mode bulles            | sel_b             | `http://<IP_ESP>/select/sel_b/set?option=Arret` (ou Niveau1, Niveau2, Niveau3) |
+| Filtration             | sw_f              | `http://<IP_ESP>/switch/filtration/turn_on` ou `turn_off` |
+| Chauffage              | sw_h              | `http://<IP_ESP>/switch/chauffage/turn_on` ou `turn_off` |
+| UVC                    | sw_uvc            | `http://<IP_ESP>/switch/uvc/turn_on` ou `turn_off` |
+| Verrouillage clavier   | lock              | `http://<IP_ESP>/switch/verrouillage_clavier/turn_on` ou `turn_off` |
+| Mode bulles            | sel_b             | `http://<IP_ESP>/select/mode_bulles/set?option=Arret` (ou Niveau1, Niveau2, Niveau3) |
 | Température consigne   | consigne_setpoint | `http://<IP_ESP>/number/consigne_setpoint/set?value=38` |
 
-**IP** : l’ESP est en DHCP ; utiliser l’IP actuelle de l’ESP (routeur, ESPHome, etc.), jamais en dur dans le dépôt.
+**IP** : utiliser l’IP de l’ESP (fixe via `secrets.yaml` + `manual_ip`, ou DHCP). Ne pas mettre d’IP en dur dans le dépôt.
+
+---
+
+## Création des périphériques dans Eedomus
+
+1. **Créer un périphérique** par entité (Filtration, Chauffage, Bulles, UVC, Verrouillage, Consigne temp., Temp. eau).
+2. **Type** : Liste de valeurs (ON/OFF) pour les switches ; Nombre décimal pour consigne et température eau.
+3. **Valeurs (liste)** : pour Filtration par ex. définir 0 = OFF, 1 = ON. Optionnel : renseigner l’URL (ex. `http://<IP_ESP>/switch/filtration/turn_on`) si tu veux que Eedomus appelle l’ESP ; sinon l’ESP pousse seul la valeur (push).
+4. **Pas de XPATH** : laisser Requête / XPATH vides. L’ESP envoie les données en push vers Eedomus (API `periph.value`).
+5. **Récupérer les IDs** : après création, noter l’ID numérique de chaque périphérique et le mettre dans `esphome/secrets.yaml` (clés `eedomus_periph_*`). Voir `docs/secrets_reference.md`.

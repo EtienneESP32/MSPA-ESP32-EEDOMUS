@@ -21,7 +21,9 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Protocole** : `docs/protocol_mspa.md` (structure des trames, IDs, checksum)
 - **Règles logiques** : `docs/logic_spec.md` (priorité, lock, source de vérité)
 - **Tests** : `docs/test_plan.md` (phases avec/sans eau, sniffer)
+- **Config eedomus** : `docs/config_eedomus.md` (périphériques, correspondance ESP↔Eedomus, création des périphériques)
 - **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
+- **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
 - **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
 
 ## Première utilisation (secrets)
