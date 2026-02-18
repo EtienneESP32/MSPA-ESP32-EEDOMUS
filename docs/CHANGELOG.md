@@ -10,14 +10,15 @@ Après une perte des fichiers sources (restauration depuis Git), le code du **co
 
 ### Contrôleur (`esphome/mspa-controller.yaml`)
 
-- **Boot** : consigne initiale 40 °C ; délai 60 s avant le premier probe eedomus (évite crash au démarrage).
+- **Boot** : consigne initiale 40 °C ; délai 90 s avant le premier probe eedomus (UI + sockets stables).
 - **Stabilité** :
   - `api: reboot_timeout: 0s` (plus de reboot « no clients » avec eedomus en HTTP).
   - `wifi: power_save_mode: none` ; `ota: version: 2` ; `safe_mode: reboot_timeout: 10min`.
-  - `http_request: timeout: 1s` ; probe eedomus 60 s si joignable, 5 min si injoignable.
-- **File UART pour l’UI** : commandes Filtration / Chauffage / UVC ne font plus d’écriture UART directe ; elles mettent une trame en attente (`pending_uart_id` / `pending_uart_val`) envoyée par la boucle principale (évite écriture concurrente et commandes perdues).
-- **Boucle** : max 2 trames par cycle, `yield()`, vérification checksum sur trames SPA (0x1A), `opt.size()` pour bulles, `has_state` pour consigne.
-- **Bulles** : envoi UART 0xA5 0x03 dans le `set_action` du select (avec respect du lock).
+  - `http_request: timeout: 1s` ; probe eedomus 120 s si joignable (dev avec UI), 5 min si injoignable.
+- **Boutons (Filtration, Chauffage, UVC)** : écriture UART directe depuis les actions des switches (trame 0xA5 envoyée au SPA).
+- **Verrouillage clavier** : Lock ON → seul le flux **clavier → SPA** est bloqué ; eedomus et l’UI peuvent toujours piloter le SPA (voir `docs/logic_spec.md`).
+- **Boucle** : max 2 trames par cycle, deux `yield()` (UI responsive), checksum sur trames SPA (0x1A), `opt.size()` pour bulles, `has_state` pour consigne.
+- **Bulles / consigne** : envoi UART direct dans `set_action` (select) et `set_action` (number).
 - **IP fixe** : prise en charge via secrets `static_ip`, `gateway`, `subnet` et `manual_ip` dans le WiFi.
 
 Références : `docs/protocol_mspa.md`, `docs/logic_spec.md`, `docs/config_eedomus.md`.

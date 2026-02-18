@@ -22,7 +22,8 @@ esphome:
         id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
         id(eedomus_reachable) = false;
         id(consigne_setpoint).publish_state(40.0f);
-    - delay: 60s
+    # 90s pour laisser web_server/API stabiliser → UI responsive, moins d'erreurs sockets
+    - delay: 90s
     - if:
         condition:
           lambda: 'return id(eedomus_enabled);'
@@ -35,7 +36,7 @@ esphome:
             uint8_t fid = (uint8_t) id(pending_uart_id);
             uint8_t fv = (uint8_t) id(pending_uart_val);
             uint8_t f[4] = { 0xA5, fid, fv, (uint8_t)((0xA5 + fid + fv) & 0xFF) };
-            if (!id(lock).state) id(uart_spa).write_array(f, 4);
+            id(uart_spa).write_array(f, 4);
             id(pending_uart_id) = 0;
           }
           static uint8_t c_buf[4], c_idx = 0;
@@ -86,6 +87,7 @@ esphome:
               c_idx = 0;
             }
           }
+          yield();
           static uint8_t s_buf[4], s_idx = 0;
           int n_spa = 0;
           while (id(uart_spa).available() && n_spa < max_trames * 4) {
@@ -174,9 +176,9 @@ logger:
   level: INFO
   baud_rate: 0
 
-# Probe eedomus : 60s si joignable, 5 min si injoignable (limite sockets → stabilité)
+# Probe eedomus : 120s si joignable (dev avec UI), 5 min si injoignable → UI responsive
 interval:
-  - interval: 60s
+  - interval: 120s
     then:
       - if:
           condition:
@@ -191,7 +193,7 @@ interval:
           then:
             - script.execute: probe_eedomus
 
-# Optionnel : en prod tu peux commenter pour libérer RAM/sockets (tout passe par eedomus).
+# Dev : garder pour l'UI. Prod : commenter pour libérer RAM/sockets et faciliter l'OTA.
 web_server:
   port: 80
 
@@ -278,14 +280,18 @@ switch:
     optimistic: true
     on_turn_on:
       then:
-        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x01;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_filtration}
             p_val: 100
     on_turn_off:
       then:
-        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x00;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x02, 0x00, (uint8_t)((0xA5 + 0x02 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_filtration}
@@ -296,14 +302,18 @@ switch:
     optimistic: true
     on_turn_on:
       then:
-        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x01;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_chauffage}
             p_val: 100
     on_turn_off:
       then:
-        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x00;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x01, 0x00, (uint8_t)((0xA5 + 0x01 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_chauffage}
@@ -314,14 +324,18 @@ switch:
     optimistic: true
     on_turn_on:
       then:
-        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x01;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x19, 0x01, (uint8_t)((0xA5 + 0x19 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_uvc}
             p_val: 100
     on_turn_off:
       then:
-        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x00;'
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x19, 0x00, (uint8_t)((0xA5 + 0x19 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_uvc}
@@ -357,7 +371,7 @@ select:
             else if (x == "Niveau2") val = 2;
             else if (x == "Niveau3") val = 3;
             uint8_t f[4] = { 0xA5, 0x03, (uint8_t)val, (uint8_t)((0xA5 + 0x03 + val) & 0xFF) };
-            if (!id(lock).state) id(uart_spa).write_array(f, 4);
+            id(uart_spa).write_array(f, 4);
             id(push_eedomus).execute(${periph_bulles}, val);
 
 number:

@@ -25,6 +25,7 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
 - **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
 - **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
+- **Dépannage / logs** : `docs/depannage_logs.md` (erreurs HTTP, sockets, eedomus)
 
 ## Première utilisation (secrets)
 
@@ -49,6 +50,10 @@ py -m esphome run esphome/mspa-uart-sniffer.yaml --device <IP_ESP>
 ```
 
 L’IP de l’ESP peut être en DHCP ou fixe (voir `secrets.yaml.example` et `manual_ip` dans le contrôleur). Adapter `<IP_ESP>` ou le port COM selon ton réseau. Aucune donnée sensible n’est dans le dépôt.
+
+## Dépannage et logs
+
+En cas de **Failed to create socket** ou **ESP_ERR_HTTP_CONNECT** (probe eedomus), ou **httpd_accept_conn: error (23)** : voir `docs/depannage_logs.md` (analyse des causes et pistes de résolution).
 
 ## Licence
 

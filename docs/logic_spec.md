@@ -12,10 +12,11 @@
 - L’état affiché (eedomus/UI) = ce que le Spa **fait réellement**, pas ce qu’on souhaite.
 - **Validation par le Spa** : un changement n’est confirmé que lorsque l’ESP32 a reçu la trame de confirmation du Spa (état 0x1A). Évite les clignotements si le Spa refuse (ex. sécurité manque d’eau).
 
-## 3. Mode Lock (inhibition du clavier)
+## 3. Mode Lock (verrouillage clavier)
 
-- **Comportement** : Lock ON → l’ESP32 fait pare-feu sur le bus UART.
-- **Action** : trames du clavier interceptées ; si ordre (ex. bulles), l’ESP32 réécrit la trame avec l’état défini par le contrôleur avant envoi au Spa.
+- **Piloté par** : eedomus ou l’UI (pas le clavier physique). Ex. alarme maison activée → verrou ON.
+- **Comportement** : Lock ON → seules les **trames clavier → SPA** sont bloquées (non relayées). Le panneau physique ne commande plus le Spa.
+- **eedomus / UI** : restent actifs ; les commandes envoyées depuis eedomus ou l’UI continuent d’être envoyées au SPA même verrouillé.
 - **Exception** : au redémarrage (power cycle), le verrou est toujours OFF par défaut (accès manuel en panne domotique).
 
 ## 4. Gestion du conflit de boucle (anti-oscillation)
