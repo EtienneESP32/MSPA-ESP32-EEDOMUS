@@ -9,6 +9,7 @@ esphome/secrets.yaml
 # Build / IDE
 .pio/
 .vscode/
+__pycache__/
 *.local
 
 # OS

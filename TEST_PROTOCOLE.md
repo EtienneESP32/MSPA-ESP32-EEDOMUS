@@ -14,13 +14,7 @@ Le firmware en place (`mspa-controller.yaml`) inclut : pont UART, interprétatio
 
 ## Référence : phases physiques (déjà franchies)
 
-Les étapes ci‑dessous ont servi à valider le bus et le pont. Elles restent en référence si tu dois re-tester un device isolé.
-
-| Phase | Objectif | Config (référence) | Statut |
-|-------|----------|--------------------|--------|
-| 1 | Clavier seul + mock SPA | `test-cool-phase1-clavier-seul.yaml` | Validé |
-| 2 | SPA seul + mock clavier | `test-cool-phase2-spa-seul.yaml` | Validé |
-| 3 | Pont complet transparent | `test-cool.yaml` | Validé |
+Les phases 1 (clavier seul + mock SPA), 2 (SPA seul + mock clavier) et 3 (pont transparent) ont servi à valider le bus et le pont. Les configs de test dédiées ont été retirées du dépôt ; le firmware de production est `esphome/mspa-controller.yaml`, l’audit avec `esphome/mspa-uart-sniffer.yaml`.
 
 ---
 

@@ -173,6 +173,9 @@ globals:
   - id: pending_uart_val
     type: int
     restore_value: false
+  - id: eedomus_warn_logged
+    type: bool
+    restore_value: false
 
 http_request:
   useragent: "Mozilla/5.0"
@@ -230,6 +233,14 @@ script:
           on_error:
             then:
               - lambda: 'id(eedomus_reachable) = false;'
+              - if:
+                  condition:
+                    lambda: 'return !id(eedomus_warn_logged);'
+                  then:
+                    - lambda: 'id(eedomus_warn_logged) = true;'
+                    - logger.log:
+                        level: WARN
+                        format: "eedomus injoignable ou URL invalide. Si logs montrent IP_OU_HOST_EEDOMUS, remplacer eedomus_host (et api_user/secret) dans secrets.yaml."
 
   - id: push_eedomus
     mode: queued
@@ -307,11 +318,14 @@ switch:
     name: "Chauffage"
     id: sw_h
     optimistic: true
+    # Protocole : "Chauffage (01) force 02 à 01" (doc) → la pompe est pilotée par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arrêt si pas d'eau
     on_turn_on:
       then:
         - lambda: |-
-            uint8_t f[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
-            id(uart_spa).write_array(f, 4);
+            uint8_t f02[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f02, 4);
+            uint8_t f01[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f01, 4);
         - script.execute:
             id: push_eedomus
             p_id: ${periph_chauffage}
@@ -383,7 +397,7 @@ select:
 
 number:
   - platform: template
-    name: "Température consigne"
+    name: "Temperature consigne"
     id: consigne_setpoint
     min_value: 20
     max_value: 40
@@ -403,7 +417,7 @@ number:
 
 sensor:
   - platform: template
-    name: "Température eau"
+    name: "Temperature eau"
     id: cur_temp
     unit_of_measurement: "°C"
     update_interval: never
@@ -425,11 +439,11 @@ sensor:
 
 binary_sensor:
   - platform: template
-    name: "État réel filtration"
+    name: "Etat reel filtration"
     id: f_st
   - platform: template
-    name: "État réel chauffage"
+    name: "Etat reel chauffage"
     id: h_st
   - platform: template
-    name: "État réel bulles"
+    name: "Etat reel bulles"
     id: b_st

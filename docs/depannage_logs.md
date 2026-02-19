@@ -33,6 +33,30 @@ E (603204) HTTP_CLIENT: Connection failed, sock < 0
 
 ---
 
+## Placeholder eedomus (URL invalide)
+
+### Message typique
+
+```
+E (90048) HTTP_CLIENT: Error parse url http://IP_OU_HOST_EEDOMUS/api/
+```
+
+### Signification
+
+- L’ESP utilise encore les **valeurs d’exemple** de `secrets.yaml` : `eedomus_host` n’a pas été remplacé par l’IP réelle de la box eedomus.
+- Tant que cette clé (et éventuellement `eedomus_api_user` / `eedomus_api_secret`) reste en placeholder, le probe et le push vers eedomus échouent.
+
+### Que faire
+
+1. Ouvrir **`esphome/secrets.yaml`**.
+2. Remplacer `eedomus_host: "IP_OU_HOST_EEDOMUS"` par l’**IP ou hostname** de ta box eedomus (ex. `192.168.1.242`).
+3. Remplacer aussi `eedomus_api_user` et `eedomus_api_secret` par tes vrais identifiants API.
+4. Recompiler et reflasher l’ESP.
+
+Au premier échec du probe, l’ESP logue aussi un **WARNING** rappelant de vérifier `secrets.yaml`. Voir `docs/secrets_reference.md` section « Avant le premier flash ».
+
+---
+
 ## Erreurs httpd (serveur web)
 
 ### Message typique

@@ -6,6 +6,23 @@ Le fichier à renseigner en local est **`esphome/secrets.yaml`** (copier depuis 
 
 ---
 
+## Avant le premier flash (checklist obligatoire)
+
+**Ne pas flasher avec les valeurs d’exemple** : l’ESP ne se connectera pas au Wi‑Fi ni à eedomus. Dans `secrets.yaml`, remplacer **obligatoirement** :
+
+| Clé | Remplacer par |
+|-----|----------------|
+| `wifi_ssid` | Nom exact de ton réseau Wi‑Fi |
+| `wifi_password` | Mot de passe Wi‑Fi |
+| `eedomus_host` | **IP réelle de la box eedomus** (ex. `192.168.1.242`), pas `IP_OU_HOST_EEDOMUS` |
+| `eedomus_api_user` | Ton api_user eedomus |
+| `eedomus_api_secret` | Ton api_secret eedomus |
+| `eedomus_periph_*` | Les IDs numériques des périphériques créés dans eedomus |
+
+Si `eedomus_host` reste en placeholder, les logs afficheront **Error parse url http://IP_OU_HOST_EEDOMUS/api/** et le push vers eedomus ne fonctionnera pas. Voir `docs/depannage_logs.md` section « Placeholder eedomus ».
+
+---
+
 ## Clés utilisées dans le code
 
 | Clé | Fichier(s) | Usage |
@@ -13,7 +30,7 @@ Le fichier à renseigner en local est **`esphome/secrets.yaml`** (copier depuis 
 | `wifi_ssid` | mspa-controller.yaml, mspa-uart-sniffer.yaml | SSID du réseau Wi‑Fi |
 | `wifi_password` | mspa-controller.yaml, mspa-uart-sniffer.yaml | Mot de passe Wi‑Fi |
 | `ap_ssid` | mspa-controller.yaml | SSID du point d’accès de secours (AP) |
-| `ap_password` | secrets.yaml.example uniquement | Mot de passe de l’AP (optionnel, non utilisé dans le YAML actuel) |
+| `ap_password` | mspa-controller.yaml | Mot de passe du réseau de secours (AP MSPA-RECOVERY) |
 | `eedomus_enabled` | mspa-controller.yaml | `"true"` ou `"false"` – activer/désactiver eedomus |
 | `eedomus_host` | mspa-controller.yaml | IP ou hostname de la box eedomus |
 | `eedomus_api_user` | mspa-controller.yaml | Utilisateur API eedomus |
@@ -27,6 +44,8 @@ Le fichier à renseigner en local est **`esphome/secrets.yaml`** (copier depuis 
 | `eedomus_periph_temp_eau` | mspa-controller.yaml | ID du périphérique eedomus « Température eau » |
 
 **Optionnel (IP fixe)** : si tu ajoutes `manual_ip` dans le WiFi du contrôleur, tu peux définir dans `secrets.yaml` les clés `static_ip`, `gateway`, `subnet` (voir la fin de `secrets.yaml.example`).
+
+**URLs eedomus (copier-coller)** : les clés `eedomus_url_*` ne sont pas lues par l’ESP ; elles contiennent les URLs complètes (avec l’IP de l’ESP) à coller dans les états des actionneurs HTTP eedomus. Consigne température = 6 clés (`eedomus_url_consigne_25` … `_38`). Voir `docs/config_eedomus.md` section « Consigne température » et « URLs pour actionneurs HTTP eedomus ».
 
 ---
 

@@ -1,5 +1,13 @@
 # Historique des changements (MSPA ESP32)
 
+## 2026-02 – Nettoyage dépôt (BLE abandonné, configs de test)
+
+- **BLE** : piste abandonnée ; suppression de `ble-spa-sniff.yaml` et de toute référence au BLE.
+- **Configs de test** : suppression des YAML de phase (clavier seul, SPA seul, pont transparent) à la racine ; le dépôt ne garde que le contrôleur (`esphome/mspa-controller.yaml`) et le sniffer (`esphome/mspa-uart-sniffer.yaml`).
+- **Doc** : `TEST_PROTOCOLE.md` mis à jour (phases validées décrites sans références aux configs supprimées). Correction `level: WARNING` → `WARN` dans le contrôleur (compatibilité ESPHome).
+
+---
+
 ## 2026-02 – Restauration et stabilisation
 
 ### Contexte
