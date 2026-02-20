@@ -103,12 +103,18 @@ esphome:
                 if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
                 if (s_buf[1] == 0x1A) {
                    uint8_t d = s_buf[2];
-                   static uint8_t last_1a = 0xFF;
-                   if (d != last_1a) {
-                     last_1a = d;
-                     id(f_st).publish_state(d & 0x01);
-                     id(h_st).publish_state(d & 0x02);
-                     id(b_st).publish_state(d & 0x04);
+                   // Le SPA envoie 0x1A en alternance : 0x03 (pompe+chauffage) et 0x04 (bulles).
+                   // On fusionne au lieu d'écraser : 0x00 = tout off, 0x01/0x02/0x03 = ph, 0x04 = bulles.
+                   static uint8_t last_1a_ph = 0, last_1a_b = 0, last_combined = 0xFF;
+                   if (d == 0x00) { last_1a_ph = 0; last_1a_b = 0; }
+                   else if (d == 0x01 || d == 0x02 || d == 0x03) last_1a_ph = d;
+                   else if (d == 0x04) last_1a_b = d;
+                   uint8_t combined = (last_1a_ph & 0x03) | (last_1a_b & 0x04);
+                   if (combined != last_combined) {
+                     last_combined = combined;
+                     id(f_st).publish_state(combined & 0x01);
+                     id(h_st).publish_state(combined & 0x02);
+                     id(b_st).publish_state(combined & 0x04);
                    }
                 }
               }
@@ -206,8 +212,10 @@ interval:
             - script.execute: probe_eedomus
 
 # Dev : garder pour l'UI. Prod : commenter pour libérer RAM/sockets et faciliter l'OTA.
+# version: 3 pour respecter sorting_weight (ordre d'affichage des entités)
 web_server:
   port: 80
+  version: 3
 
 uart:
   - id: uart_spa
@@ -297,6 +305,8 @@ switch:
   - platform: template
     name: "Filtration"
     id: sw_f
+    web_server:
+      sorting_weight: 1
     optimistic: true
     on_turn_on:
       then:
@@ -319,6 +329,8 @@ switch:
   - platform: template
     name: "Chauffage"
     id: sw_h
+    web_server:
+      sorting_weight: 2
     optimistic: true
     # Protocole : "Chauffage (01) force 02 à 01" (doc) → la pompe est pilotée par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arrêt si pas d'eau
     on_turn_on:
@@ -344,6 +356,8 @@ switch:
   - platform: template
     name: "UVC"
     id: sw_uvc
+    web_server:
+      sorting_weight: 3
     optimistic: true
     on_turn_on:
       then:
@@ -366,6 +380,8 @@ switch:
   - platform: template
     name: "Verrouillage clavier"
     id: lock
+    web_server:
+      sorting_weight: 4
     optimistic: true
     on_turn_on:
       then:
@@ -384,6 +400,8 @@ select:
   - platform: template
     name: "Mode bulles"
     id: sel_b
+    web_server:
+      sorting_weight: 5
     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
     optimistic: true
     set_action:
@@ -397,30 +415,12 @@ select:
             id(uart_spa).write_array(f, 4);
             id(push_eedomus).execute(${periph_bulles}, val);
 
-number:
-  - platform: template
-    name: "Temperature consigne"
-    id: consigne_setpoint
-    min_value: 20
-    max_value: 40
-    step: 0.5
-    unit_of_measurement: "°C"
-    set_action:
-      - lambda: |-
-          uint8_t frame[4];
-          frame[0] = 0xA5;
-          frame[1] = 0x04;
-          frame[2] = (uint8_t)(x * 2.0f);
-          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
-          id(uart_spa).write_array(frame, 4);
-    on_value:
-      then:
-        - lambda: id(push_consigne_eedomus).execute(x);
-
 sensor:
   - platform: template
     name: "Temperature eau"
     id: cur_temp
+    web_server:
+      sorting_weight: 7
     unit_of_measurement: "°C"
     update_interval: never
     on_value:
@@ -439,13 +439,41 @@ sensor:
               id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
             }
 
+number:
+  - platform: template
+    name: "Temperature consigne"
+    id: consigne_setpoint
+    web_server:
+      sorting_weight: 6
+    min_value: 20
+    max_value: 40
+    step: 0.5
+    unit_of_measurement: "°C"
+    set_action:
+      - lambda: |-
+          uint8_t frame[4];
+          frame[0] = 0xA5;
+          frame[1] = 0x04;
+          frame[2] = (uint8_t)(x * 2.0f);
+          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
+          id(uart_spa).write_array(frame, 4);
+    on_value:
+      then:
+        - lambda: id(push_consigne_eedomus).execute(x);
+
 binary_sensor:
   - platform: template
     name: "Etat reel filtration"
     id: f_st
+    web_server:
+      sorting_weight: 8
   - platform: template
     name: "Etat reel chauffage"
     id: h_st
+    web_server:
+      sorting_weight: 9
   - platform: template
     name: "Etat reel bulles"
     id: b_st
+    web_server:
+      sorting_weight: 10

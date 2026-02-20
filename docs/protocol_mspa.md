@@ -39,7 +39,7 @@
 | Fonction     | ID (Hex) | Interprétation |
 |--------------|----------|----------------|
 | Température  | 06       | Valeur / 2 = °C (demi-degrés) |
-| Flags        | 1A       | Bitmask : 01=Pompe, 02=Chauffage, 04=Bulles, 08=Repos ; états réels SPA uniquement sur 0x1A (pas 0x00) |
+| Flags        | 1A       | Bitmask : 01=Pompe, 02=Chauffage, 04=Bulles. **En pratique** le SPA envoie 0x1A en alternance (data 0x03 = pompe+chauffage, 0x04 = bulles, 0x00 = tout off) ; le contrôleur fusionne ces trames pour afficher un état unique. |
 | (inconnu)    | 08       | SPA→CLAV, data 0x00 observé en continu — rôle à préciser |
 
 ## Température (demi-degrés)
