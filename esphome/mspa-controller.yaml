@@ -3,6 +3,7 @@
 # Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
 
 substitutions:
+  mspa_version: "1.0.0"
   eedomus_enabled: !secret eedomus_enabled
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -17,6 +18,7 @@ substitutions:
 
 esphome:
   name: mspa-final-controller
+  friendly_name: "Contrôleur MSPA ${mspa_version}"
   on_boot:
     - lambda: |-
         id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
