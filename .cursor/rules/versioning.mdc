@@ -1,0 +1,13 @@
+---
+description: Toujours mettre en place le versioning (Git) dans tout nouveau projet ou code
+alwaysApply: true
+---
+
+# Versioning dans tout nouveau projet
+
+- **Règle** : Dès qu’on crée, structure ou ouvre un **nouveau** projet (nouveau dossier, nouveau repo, nouveau code), mettre en place le **versioning** pour ne pas s’y perdre.
+- **Actions** :
+  - Initialiser un dépôt Git (`git init`) si aucun n’existe.
+  - Ajouter un `.gitignore` adapté au langage/stack (ex. `node_modules/`, `__pycache__/`, `secrets.yaml`, `.env`, build, IDE).
+  - Proposer un premier commit après les premiers fichiers utiles.
+- **Ne pas** réinitialiser Git dans un dépôt existant déjà versionné ; vérifier avec `git status` avant d’agir.

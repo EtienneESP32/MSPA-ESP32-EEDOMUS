@@ -26,6 +26,7 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
 - **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
 - **Dépannage / logs** : `docs/depannage_logs.md` (erreurs HTTP, sockets, eedomus)
+- **Cursor (workspace, nouveau projet)** : `docs/cursor_workspace.md` (workspace vs dossier, créer/ouvrir un autre projet)
 
 ## Première utilisation (secrets)
 
