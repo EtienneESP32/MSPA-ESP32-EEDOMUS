@@ -1,0 +1,3 @@
+# GitHub Linguist : ne pas compter l'outil Python dans la langue principale du dépôt
+# Le projet est firmware ESPHome (YAML + C++ dans les lambdas), pas un projet Python.
+tools/mspa_protocol.py linguist-vendored

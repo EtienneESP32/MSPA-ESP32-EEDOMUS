@@ -7,12 +7,13 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 | Dossier / Fichier | Rôle |
 |-------------------|------|
 | `docs/` | Documentation : protocole, règles logiques, plan de tests |
-| `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) |
+| `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) – ESP32 classique |
+| `esphome/mspa-controller-s3.yaml` | Variante **ESP32-S3** (DEVKITC-1 N16R8) – voir `docs/hardware_esp32s3.md` |
 | `esphome/mspa-uart-sniffer.yaml` | Firmware d’audit : capture des trames UART (sans modifier le bus) |
 
 ## Matériel
 
-- **ESP32** (UART 9600 bps)
+- **ESP32** (UART 9600 bps) – brochure : `docs/hardware_esp32.md`
 - **Level shifter** 5V ↔ 3,3 V (SPA et clavier en 5 V TTL)
 - Câblage : voir `docs/protocol_mspa.md`
 
@@ -22,6 +23,8 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Règles logiques** : `docs/logic_spec.md` (priorité, lock, source de vérité)
 - **Tests** : `docs/test_plan.md` (phases avec/sans eau, sniffer)
 - **Config eedomus** : `docs/config_eedomus.md` (périphériques, correspondance ESP↔Eedomus, création des périphériques)
+- **Hardware ESP32** : `docs/hardware_esp32.md` (brochage, level shifter, firmware dédié)
+- **Hardware ESP32-S3** : `docs/hardware_esp32s3.md` (évolution N16R8, migration, `mspa-controller-s3.yaml`)
 - **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
 - **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
 - **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
