@@ -7,22 +7,30 @@
   - Ordre via eedomus/UI → ESP32 modifie le bus UART.
   - Bouton physique sur le clavier → ESP32 détecte, met à jour son état, informe eedomus.
 
-## 2. Source de vérité (retour d’état)
+## 2. Source de vérité (retour d’état) Absolute
 
-- L’état affiché (eedomus/UI) = ce que le Spa **fait réellement**, pas ce qu’on souhaite.
-- **Validation par le Spa** : un changement n’est confirmé que lorsque l’ESP32 a reçu la trame de confirmation du Spa (état 0x1A). Évite les clignotements si le Spa refuse (ex. sécurité manque d’eau).
+- Le moteur ESP32 est en position d'**écoutes absolue** (Pass-Through).
+- L’état affiché sur l'UI et envoyé à Eedomus n'est mis à jour **que lorsque** le Spa envoie son état physique dans les trames `0x1A`.
+- **Bulles (Spécificité)** : L'ID `0x1A` n'est **PAS** fiable pour le retour d'état des bulles sur ce modèle. La seule source de vérité absolue est l'ID **`0x1B`** (trame 5 octets).
+- Si le SPA allume ou éteint un composant de façon autonome (cycle de nettoyage, thermostat atteint), l'interface Web s'adaptera passivement pour refléter la réalité. L'ESP **ne combat jamais** les décisions autonomes du SPA.
 
 ## 3. Mode Lock (verrouillage clavier)
+*(Note: Fonctionnalité optionnelle non intégrée dans le firmware de base Absolute Sync pour l'instant).*
+- **Piloter par** : eedomus ou l’UI.
+- **Principe** : Si implémenté, interceptés les trames `0x01` du clavier et les remplacer par `0x00`.
 
-- **Piloté par** : eedomus ou l’UI (pas le clavier physique). Ex. alarme maison activée → verrou ON.
-- **Comportement** : Lock ON → seules les **trames clavier → SPA** sont bloquées (non relayées). Le panneau physique ne commande plus le Spa.
-- **eedomus / UI** : restent actifs ; les commandes envoyées depuis eedomus ou l’UI continuent d’être envoyées au SPA même verrouillé.
-- **Exception** : au redémarrage (power cycle), le verrou est toujours OFF par défaut (accès manuel en panne domotique).
+## 4. Stratégie d'Injection : Les 3 Modes (V3.5.0)
 
-## 4. Gestion du conflit de boucle (anti-oscillation)
+L'ESP32 interagit avec le Spa selon 3 mécaniques matérielles distinctes :
 
-- **Commande impulsionnelle** : l’ESP32 n’injecte une modification que jusqu’à ce que le Spa ait confirmé. Ensuite il redevient transparent et laisse passer les trames du clavier sans modification.
-- **Libération du bus** : une fois état réel (Spa) = état souhaité (eedomus), plus d’injection forcée.
+1. **Mode 1 : Bulles et Consigne (Trame Étendue 0x1B)**
+   - Canal asynchrone indépendant : L'ESP32 modifie ou envoie directement la trame de 5 octets sans attendre d'autorisation du moteur.
+2. **Mode 2 : Filtration (Interception Pure "MITM")**
+   - Le clavier envoie périodiquement l'état de la pompe (`0x02`). Si l'Eedomus demande l'allumage, l'ESP32 attend la trame `OFF` du clavier, modifie l'octet en `ON` à la volée, recalcule le checksum et transmet au moteur. Le timing est virtuellement parfait.
+3. **Mode 3 : Chauffe et UVC (Mode "Sniper" Synchrone)**
+   - Ces commandes sont ponctuelles ("One-Shot") et nécessitent que la pompe tourne.
+   - Si la pompe est OFF, l'ESP force l'allumage de la pompe ("Cascade").
+   - L'ordinateur du Spa n'écoute les commandes que juste après le "Poll" du clavier (`0x0D` envoyé toutes les 9s). L'ESP garde l'ordre en mémoire (`pending_uart_id`) et l'injecte dans la milliseconde qui suit la détection du `0x0D` pour garantir son exécution.
 
 ## 5. Télémétrie température
 

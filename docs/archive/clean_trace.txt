@@ -1,0 +1,13 @@
+INFO ESPHome 2026.1.4
+INFO Reading configuration esphome\mspa-controller.yaml...
+INFO Starting log output from 192.168.1.226 using esphome API
+INFO Successfully resolved mspa-final-controller @ 192.168.1.226 in 0.000s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.010s
+WARNING Can't connect to ESPHome API for mspa-final-controller @ 192.168.1.226: mspa-final-controller @ 192.168.1.226: EOF received (SocketClosedAPIError)
+INFO Trying to connect to mspa-final-controller @ 192.168.1.226 in the background
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.018s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.024s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.054s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.114s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.051s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.012s

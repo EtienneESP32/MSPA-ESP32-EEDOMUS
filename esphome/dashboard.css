@@ -1,0 +1,75 @@
+/* dashboard.css - Premium Aesthetics for MSPA Dashboard */
+
+:root {
+  --primary-color: #00d2ff;
+  --secondary-color: #3a7bd5;
+  --bg-dark: #0f172a;
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-glow: 0 0 15px rgba(0, 210, 255, 0.3);
+}
+
+body {
+  background: radial-gradient(circle at top right, #1e293b, #0f172a);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, sans-serif;
+  margin: 0;
+  padding: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Effect for Cards */
+.card {
+  background: var(--card-bg) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  margin-bottom: 16px !important;
+  overflow: hidden;
+}
+
+/* Modern Header Style */
+h1, h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+/* Enhancing Icons and Switches */
+.entity-icon {
+  color: var(--primary-color) !important;
+  filter: drop-shadow(0 0 5px rgba(0, 210, 255, 0.5));
+}
+
+.switch input:checked + .slider {
+  background-color: var(--secondary-color) !important;
+  box-shadow: var(--accent-glow);
+}
+
+/* Temperature Display Glow */
+.sensor-value {
+  font-weight: 800 !important;
+  font-size: 1.4rem !important;
+  color: var(--primary-color) !important;
+}
+
+/* Custom transitions */
+* {
+  transition: all 0.25s ease-in-out;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+  .card {
+    border-radius: 12px !important;
+  }
+}

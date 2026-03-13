@@ -6,8 +6,9 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 
 | Dossier / Fichier | Rôle |
 |-------------------|------|
-| `docs/` | Documentation : protocole, règles logiques, plan de tests |
-| `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) – ESP32 classique |
+| `docs/` | Documentation : protocole, règles logiques, plan de tests (v3.5.0 révisée) |
+| `docs/archive/` | Archives des anciens logs UART et configurations de tests obsolètes |
+| `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) – ESP32 classique (Architecture V3.5 Sync-Sniper) |
 | `esphome/mspa-controller-s3.yaml` | Variante **ESP32-S3** (DEVKITC-1 N16R8) – voir `docs/hardware_esp32s3.md` |
 | `esphome/mspa-uart-sniffer.yaml` | Firmware d’audit : capture des trames UART (sans modifier le bus) |
 
@@ -27,8 +28,8 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Hardware ESP32-S3** : `docs/hardware_esp32s3.md` (évolution N16R8, migration, `mspa-controller-s3.yaml`)
 - **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
 - **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
-- **Changelog** : `docs/CHANGELOG.md` (restauration, stabilisation, sniffer)
-- **Dépannage / logs** : `docs/depannage_logs.md` (erreurs HTTP, sockets, eedomus)
+- **Changelog** : `docs/CHANGELOG.md` (Passage à l'architecture "Sync-Sniper" v3.5.0, Buffer UART 1024, fix UVC)
+- **Dépannage / logs** : `docs/depannage_logs.md` (erreurs HTTP, OTA, eedomus)
 - **Cursor (workspace, nouveau projet)** : `docs/cursor_workspace.md` (workspace vs dossier, créer/ouvrir un autre projet)
 
 ## Première utilisation (secrets)

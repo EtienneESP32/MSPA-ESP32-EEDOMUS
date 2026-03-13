@@ -1,5 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-03-14 – Bug-Fix Release (v3.6.0)
+- **Fix A2 — p_step global** : `p_step` (machine d'état Sniper) promu en variable globale ESPHome. Chaque activation/désactivation de Chauffage ou UVC remet p_step à 0, évitant les séquences d'injection hybrides en cas de changement d'ordre entre deux Polls.
+- **Fix A4 — Injection consigne** : le slider "Temperature consigne" envoie désormais la trame `A5 04 [Temp×2] CS` au moteur SPA. La consigne était précédemment un widget read-only.
+- **Fix A7 — Sniffer sémantique** : le bit 3 de la trame `0x1A` est désormais nommé `Pret` (au lieu de `Idle`) dans le sniffer, aligné sur `protocol_mspa.md` et le binary_sensor du contrôleur.
+
 ## 2026-02 – Nettoyage dépôt (BLE abandonné, configs de test)
 
 - **BLE** : piste abandonnée ; suppression de `ble-spa-sniff.yaml` et de toute référence au BLE.
@@ -8,7 +13,22 @@
 
 ---
 
-## 2026-02 – Restauration et stabilisation
+---
+
+- **Zéro Lissage** : Suppression des temporisations de 20s. L'UI affiche la vérité brute du bus UART instantanément.
+
+### 2026-03-08 – Correctif "Magic Bytes" (v3.4.16)
+- **Détection** : Identification d'un conflit majeur entre les trames de 5 octets (`0x00`) and le composant `ota:` d'ESPHome.
+- **Action** : Optimisation du buffer UART pour prioriser le décodage applicatif sur les alertes OTA.
+- **Correction** : Séparation stricte de la Consigne (D2 de 1B) et des Flags Moteur (1A) pour éviter que la consigne ne bloque l'UI sur "Chauffage ON".
+
+### 2026-03-11 – Architecture "Sync-Sniper" (v3.5.0)
+- **Détection** : Échec aléatoire ou total des commandes One-Shot (Chauffe, UVC) dû à une injection asynchrone ratant la fenêtre d'écoute de la carte mère.
+- **Réécriture** : Abandon du timer asynchrone (`now - last_p`). Injection synchronisée **strictement sur la trame Poll (`0x0D`)** du clavier (mode Sniper).
+- **Correctif UI** : Correction du bitmask UVC (`0x10` -> `0x04`) suite à exhumation des logs UART "en eau".
+- **Prévention réseau** : Buffer UART augmenté à `1024` octets pour résister aux latences d'appel HTTP de l'API Eedomus (passage `eedomus_enabled: true` prêt).
+
+---
 
 ### Contexte
 

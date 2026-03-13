@@ -12,6 +12,9 @@ esphome/secrets.yaml
 __pycache__/
 *.local
 
+# Projet BLE intrusion (déménagé vers un dépôt Cursor dédié)
+ESP32_BLE_INTRUSION/
+
 # OS
 .DS_Store
 Thumbs.db
