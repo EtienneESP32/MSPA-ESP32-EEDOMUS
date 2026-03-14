@@ -1,8 +1,9 @@
-# Contrôleur MSPA – Version 3.6.1 (BUG-FIX)
+# Contrôleur MSPA – Version 3.6.2 (BUG-FIX)
 # Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
 # Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
 # Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
 # Fix  v3.6.1 : bulles UART direct (Mode 1 asynchrone, pas Sniper)
+# Fix  v3.6.2 : is_f/is_h/is_u dérivés par timer (anti-oscillation, voir logic_spec.md §6)
 #
 # === RÈGLES D'INJECTION : NE PAS MODIFIER SANS LIRE logic_spec.md ===
 # Mode 1 (DIRECT ASYNCHRONE) : Bulles (0x03), Consigne (0x04)
@@ -12,9 +13,14 @@
 # Mode 3 (SNIPER sur 0x0D)    : Chauffage (0x01), UVC (0x19)
 #   -> pending_uart_id/val + injection sur Poll 0x0D dans on_loop
 # ======================================================================
+# === RÈGLES RETOUR D'ETAT : NE PAS LIRE LES BITS BRUTS pour l'UI ===
+# Toujours utiliser les timers last_f_ms/last_h_ms/last_u_ms/last_b_ms
+# Regle: bool is_X = (last_X_ms != 0 && (now - last_X_ms < TIMEOUT))
+# Voir logic_spec.md §6 pour la justification et les timeouts.
+# ======================================================================
 
 substitutions:
-  mspa_version: "3.6.1"
+  mspa_version: "3.6.2"
   eedomus_enabled: !secret eedomus_enabled
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -27,7 +33,7 @@ substitutions:
 
 esphome:
   name: mspa-controller
-  friendly_name: "MSPA v3.6.1 (Bug-Fix)"
+  friendly_name: "MSPA v3.6.2 (Bug-Fix)"
   on_boot:
     priority: 800
     then:
@@ -159,8 +165,10 @@ esphome:
                       id(raw_1A_val) = 0;
                   }
                   id(status_ready).publish_state(d1 & 0x08);
-                  if (d1 & 0x01) id(last_f_ms) = now;
-                  if (d1 & 0x02) id(last_h_ms) = now;
+                  // TIMER DB (logic_spec.md §6) : jamais lire bits bruts pour l'UI
+                  if (d1 & 0x01) id(last_f_ms) = now;  // Pompe ON vue
+                  if (d1 & 0x02) id(last_h_ms) = now;  // Chauffe ON vue
+                  if (d1 & 0x04) id(last_u_ms) = now;  // UVC ON vue
                 }
               }
             }
@@ -173,12 +181,12 @@ esphome:
             if (now - last_p > 500) {
               last_p = now;
 
-              // --- ETATS BRUTS (DUAL SOURCE VRAI) ---
-              uint8_t cur_f = id(raw_1A_val);
-              bool is_f = (cur_f & 0x01);
-              bool is_h = (cur_f & 0x02);
+              // --- ETATS PAR TIMER (logic_spec.md §6 — anti-oscillation) ---
+              // REGLE : ne pas lire raw_1A_val directement pour is_f/is_h/is_u
+              bool is_f = (id(last_f_ms) != 0 && (now - id(last_f_ms) < 3000));
+              bool is_h = (id(last_h_ms) != 0 && (now - id(last_h_ms) < 3000));
               bool is_b = (id(last_b_ms) != 0 && (now - id(last_b_ms) < 5000));
-              bool is_u = (cur_f & 0x04); // FIX BUG 0x10 -> 0x04
+              bool is_u = (id(last_u_ms) != 0 && (now - id(last_u_ms) < 3000));
               
               if (is_f != l_f || first_run) { id(f_st).publish_state(is_f); l_f = is_f; }
               if (is_h != l_h || first_run) { id(h_st).publish_state(is_h); l_h = is_h; }

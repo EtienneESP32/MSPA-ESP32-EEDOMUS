@@ -49,3 +49,26 @@ L'ESP32 interagit avec le Spa selon 3 mécaniques distinctes, **chacune assigné
 ## 5. Télémétrie température
 
 - Envoi vers eedomus uniquement en cas de **variation significative** ou **heartbeat** fixe, pour limiter le trafic et la base de données.
+
+## 6. Retour d'Etat : Systeme Timer (anti-oscillation)
+
+> Ne JAMAIS deriver un etat ON/OFF depuis un bit brut de raw_1A_val. Toujours passer par le timer.
+
+Le moteur peut envoyer des trames 0x1A alternantes en transition. Lire le bit brut = bascule dans l'UI.
+
+### Mecanisme valide (v3.6.2)
+
+Timestamps mis a jour a chaque bit ON detecte :
+  if (d1 & 0x01) id(last_f_ms) = now;   // Pompe
+  if (d1 & 0x02) id(last_h_ms) = now;   // Chauffe
+  if (d1 & 0x04) id(last_u_ms) = now;   // UVC
+
+Etat derive du TIMER uniquement (jamais du bit brut) :
+  bool is_f = (last_f_ms != 0 && (now - last_f_ms < 3000));
+  bool is_h = (last_h_ms != 0 && (now - last_h_ms < 3000));
+  bool is_u = (last_u_ms != 0 && (now - last_u_ms < 3000));
+  bool is_b = (last_b_ms != 0 && (now - last_b_ms < 5000)); // 1B plus rare
+
+- Timeout 3000ms pour f/h/u : 0x1A toutes les ~400ms, 3s = 7 trames manquees = OFF certain.
+- Timeout 5000ms pour b : 0x1B moins frequent.
+- REGLE IMMUABLE : Ne jamais ecrire [bool is_X = (raw_1A_val & 0xXX)] pour l'UI.
