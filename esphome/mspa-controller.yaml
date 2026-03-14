@@ -195,7 +195,7 @@ esphome:
               first_run = false;
 
               char h_buf[64];
-              sprintf(h_buf, "F:%02X | Table F:%d H:%d B:%d", cur_f, is_f, is_h, is_b);
+              sprintf(h_buf, "F:%02X | Timer F:%d H:%d B:%d", id(raw_1A_val), is_f, is_h, is_b);
               if (strcmp(h_buf, last_h_buf) != 0) {
                   id(raw_hex).publish_state(h_buf);
                   strcpy(last_h_buf, h_buf);
