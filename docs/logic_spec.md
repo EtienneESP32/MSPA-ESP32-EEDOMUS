@@ -19,18 +19,32 @@
 - **Piloter par** : eedomus ou l’UI.
 - **Principe** : Si implémenté, interceptés les trames `0x01` du clavier et les remplacer par `0x00`.
 
-## 4. Stratégie d'Injection : Les 3 Modes (V3.5.0)
+## 4. Stratégie d'Injection : Les 3 Modes (validés terrain)
 
-L'ESP32 interagit avec le Spa selon 3 mécaniques matérielles distinctes :
+> [!IMPORTANT]
+> Ces 3 modes sont **figés par les tests terrain**. Ne jamais changer de mode pour une commande sans tests complets. Toute modification doit être documentée dans le CHANGELOG.
 
-1. **Mode 1 : Bulles et Consigne (Trame Étendue 0x1B)**
-   - Canal asynchrone indépendant : L'ESP32 modifie ou envoie directement la trame de 5 octets sans attendre d'autorisation du moteur.
-2. **Mode 2 : Filtration (Interception Pure "MITM")**
-   - Le clavier envoie périodiquement l'état de la pompe (`0x02`). Si l'Eedomus demande l'allumage, l'ESP32 attend la trame `OFF` du clavier, modifie l'octet en `ON` à la volée, recalcule le checksum et transmet au moteur. Le timing est virtuellement parfait.
-3. **Mode 3 : Chauffe et UVC (Mode "Sniper" Synchrone)**
-   - Ces commandes sont ponctuelles ("One-Shot") et nécessitent que la pompe tourne.
-   - Si la pompe est OFF, l'ESP force l'allumage de la pompe ("Cascade").
-   - L'ordinateur du Spa n'écoute les commandes que juste après le "Poll" du clavier (`0x0D` envoyé toutes les 9s). L'ESP garde l'ordre en mémoire (`pending_uart_id`) et l'injecte dans la milliseconde qui suit la détection du `0x0D` pour garantir son exécution.
+L'ESP32 interagit avec le Spa selon 3 mécaniques distinctes, **chacune assignée à des commandes spécifiques** :
+
+### Mode 1 — Direct Asynchrone (Bulles `0x03`, Consigne `0x04`)
+
+- **Implémentation** : `uart_spa.write_array()` direct dans le `set_action` du composant ESPHome.
+- **Pas de `pending_uart_id`**. Pas d'attente du Poll `0x0D`.
+- **Pourquoi** : Le moteur accepte ces commandes à tout moment. La réactivité est immédiate.
+- ⚠️ **Règle immuable** : Ne JAMAIS envoyer `0x03` ou `0x04` via `pending_uart_id` (Sniper). Validé terrain — cela casse les bulles.
+
+### Mode 2 — MITM Interception (Filtration `0x02`)
+
+- **Implémentation** : Dans le `on_loop`, le clavier envoie `0x02 OFF` périodiquement. Si l'ESP veut forcer ON, il modifie l'octet Data à la volée avant de le transmettre au moteur, et recalcule le checksum.
+- **Pas de `pending_uart_id`**. Le switch `sw_f` contrôle l'état via MITM uniquement.
+- ⚠️ **Règle immuable** : Ne JAMAIS envoyer `0x02` via `pending_uart_id` (Sniper). Le MITM seul suffit.
+
+### Mode 3 — Sniper Synchrone sur Poll `0x0D` (Chauffage `0x01`, UVC `0x19`)
+
+- **Implémentation** : L'ordre est stocké dans `pending_uart_id` / `pending_uart_val`. Dès que le `on_loop` détecte le Poll `0x0D` du clavier, il injecte la commande sur `uart_spa` immédiatement, avant de relayer le Poll.
+- **Cascade automatique** : si la pompe est OFF et que la commande est `0x01` ou `0x19` ON, l'ESP démarre d'abord la pompe (`0x02`) au Poll suivant, puis injecte la commande cible au Poll d'après.
+- ⚠️ **Règle immuable** : Seuls `0x01` et `0x19` passent par le Sniper. `p_step` est un global ESPHome (id: `p_step`) — réinitialisé à 0 à chaque nouvel ordre pour éviter les états hybrides.
+
 
 ## 5. Télémétrie température
 

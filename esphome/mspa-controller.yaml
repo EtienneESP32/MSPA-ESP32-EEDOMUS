@@ -1,10 +1,20 @@
-# Contrôleur MSPA – Version 3.6.0 (BUG-FIX)
+# Contrôleur MSPA – Version 3.6.1 (BUG-FIX)
 # Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
 # Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
 # Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
+# Fix  v3.6.1 : bulles UART direct (Mode 1 asynchrone, pas Sniper)
+#
+# === RÈGLES D'INJECTION : NE PAS MODIFIER SANS LIRE logic_spec.md ===
+# Mode 1 (DIRECT ASYNCHRONE) : Bulles (0x03), Consigne (0x04)
+#   -> set_action : uart_spa.write_array() direct, SANS pending_uart_id
+# Mode 2 (MITM)               : Filtration (0x02)
+#   -> MITM intercept keyboard 0x02 frame dans on_loop
+# Mode 3 (SNIPER sur 0x0D)    : Chauffage (0x01), UVC (0x19)
+#   -> pending_uart_id/val + injection sur Poll 0x0D dans on_loop
+# ======================================================================
 
 substitutions:
-  mspa_version: "3.6.0"
+  mspa_version: "3.6.1"
   eedomus_enabled: !secret eedomus_enabled
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -17,7 +27,7 @@ substitutions:
 
 esphome:
   name: mspa-controller
-  friendly_name: "MSPA v3.6.0 (Bug-Fix)"
+  friendly_name: "MSPA v3.6.1 (Bug-Fix)"
   on_boot:
     priority: 800
     then:
@@ -408,12 +418,14 @@ select:
     set_action:
       then:
         - lambda: |-
+            // MODE 1 : DIRECT ASYNCHRONE (Ne PAS passer par pending_uart_id/Sniper)
             int val = 0;
             if (x == "Niveau1") val = 1;
             else if (x == "Niveau2") val = 2;
             else if (x == "Niveau3") val = 3;
-            id(pending_uart_id) = 0x03;
-            id(pending_uart_val) = val;
+            uint8_t buf[4] = {0xA5, 0x03, (uint8_t)val, (uint8_t)(0xA5 + 0x03 + val)};
+            id(uart_spa).write_array(buf, 4);
+            ESP_LOGW("mspa_bulles", "BULLES DIRECT: val=%d", val);
 
 number:
   - platform: template

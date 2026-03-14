@@ -1,5 +1,11 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-03-14 – Régression Bulles (v3.6.1)
+- **Régression identifiée** : En v3.6.0, le `set_action` du select "Mode bulles" envoyait la commande via `pending_uart_id` (Sniper sur Poll 0x0D). Le moteur n'exécute pas `0x03` par ce canal — les bulles étaient silencieusement ignorées.
+- **Correction** : Retour à l'écriture **UART directe** (`uart_spa.write_array()`) pour les bulles `0x03`. Validé terrain comme seul mécanisme fonctionnel.
+- **Documentation** : `docs/logic_spec.md §4` réécrit avec règles immuables par mode. En-tête du YAML mis à jour avec tableau récapitulatif Mode 1/2/3.
+- **Règle ajoutée** : `0x03` (Bulles) et `0x04` (Consigne) = Mode 1 DIRECT uniquement. `0x02` (Filtration) = Mode 2 MITM uniquement. `0x01` et `0x19` = Mode 3 Sniper uniquement.
+
 ### 2026-03-14 – Bug-Fix Release (v3.6.0)
 - **Fix A2 — p_step global** : `p_step` (machine d'état Sniper) promu en variable globale ESPHome. Chaque activation/désactivation de Chauffage ou UVC remet p_step à 0, évitant les séquences d'injection hybrides en cas de changement d'ordre entre deux Polls.
 - **Fix A4 — Injection consigne** : le slider "Temperature consigne" envoie désormais la trame `A5 04 [Temp×2] CS` au moteur SPA. La consigne était précédemment un widget read-only.
