@@ -1,0 +1,2301 @@
+commit 9626b205c9102af8c60b3141051db1762d4a91ea
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Sat Mar 14 18:02:36 2026 +0100
+
+    v3.6.2 hotfix: cur_f supprime, sprint debug -> raw_1A_val
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 2a7b07e..fedd92b 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -195,7 +195,7 @@ esphome:
+               first_run = false;
+ 
+               char h_buf[64];
+-              sprintf(h_buf, "F:%02X | Table F:%d H:%d B:%d", cur_f, is_f, is_h, is_b);
++              sprintf(h_buf, "F:%02X | Timer F:%d H:%d B:%d", id(raw_1A_val), is_f, is_h, is_b);
+               if (strcmp(h_buf, last_h_buf) != 0) {
+                   id(raw_hex).publish_state(h_buf);
+                   strcpy(last_h_buf, h_buf);
+
+commit 13c4f7f43bc039a9c34fcc448c2da23f05053186
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Sat Mar 14 17:59:43 2026 +0100
+
+    v3.6.2 : retour etat par timer (is_f/is_h/is_u anti-oscillation) + doc logic_spec §6
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 8d4e175..2a7b07e 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -1,8 +1,9 @@
+-# Contrôleur MSPA – Version 3.6.1 (BUG-FIX)
++# Contrôleur MSPA – Version 3.6.2 (BUG-FIX)
+ # Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
+ # Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
+ # Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
+ # Fix  v3.6.1 : bulles UART direct (Mode 1 asynchrone, pas Sniper)
++# Fix  v3.6.2 : is_f/is_h/is_u dérivés par timer (anti-oscillation, voir logic_spec.md §6)
+ #
+ # === RÈGLES D'INJECTION : NE PAS MODIFIER SANS LIRE logic_spec.md ===
+ # Mode 1 (DIRECT ASYNCHRONE) : Bulles (0x03), Consigne (0x04)
+@@ -12,9 +13,14 @@
+ # Mode 3 (SNIPER sur 0x0D)    : Chauffage (0x01), UVC (0x19)
+ #   -> pending_uart_id/val + injection sur Poll 0x0D dans on_loop
+ # ======================================================================
++# === RÈGLES RETOUR D'ETAT : NE PAS LIRE LES BITS BRUTS pour l'UI ===
++# Toujours utiliser les timers last_f_ms/last_h_ms/last_u_ms/last_b_ms
++# Regle: bool is_X = (last_X_ms != 0 && (now - last_X_ms < TIMEOUT))
++# Voir logic_spec.md §6 pour la justification et les timeouts.
++# ======================================================================
+ 
+ substitutions:
+-  mspa_version: "3.6.1"
++  mspa_version: "3.6.2"
+   eedomus_enabled: !secret eedomus_enabled
+   eedomus_host: !secret eedomus_host
+   eedomus_api_user: !secret eedomus_api_user
+@@ -27,7 +33,7 @@ substitutions:
+ 
+ esphome:
+   name: mspa-controller
+-  friendly_name: "MSPA v3.6.1 (Bug-Fix)"
++  friendly_name: "MSPA v3.6.2 (Bug-Fix)"
+   on_boot:
+     priority: 800
+     then:
+@@ -159,8 +165,10 @@ esphome:
+                       id(raw_1A_val) = 0;
+                   }
+                   id(status_ready).publish_state(d1 & 0x08);
+-                  if (d1 & 0x01) id(last_f_ms) = now;
+-                  if (d1 & 0x02) id(last_h_ms) = now;
++                  // TIMER DB (logic_spec.md §6) : jamais lire bits bruts pour l'UI
++                  if (d1 & 0x01) id(last_f_ms) = now;  // Pompe ON vue
++                  if (d1 & 0x02) id(last_h_ms) = now;  // Chauffe ON vue
++                  if (d1 & 0x04) id(last_u_ms) = now;  // UVC ON vue
+                 }
+               }
+             }
+@@ -173,12 +181,12 @@ esphome:
+             if (now - last_p > 500) {
+               last_p = now;
+ 
+-              // --- ETATS BRUTS (DUAL SOURCE VRAI) ---
+-              uint8_t cur_f = id(raw_1A_val);
+-              bool is_f = (cur_f & 0x01);
+-              bool is_h = (cur_f & 0x02);
++              // --- ETATS PAR TIMER (logic_spec.md §6 — anti-oscillation) ---
++              // REGLE : ne pas lire raw_1A_val directement pour is_f/is_h/is_u
++              bool is_f = (id(last_f_ms) != 0 && (now - id(last_f_ms) < 3000));
++              bool is_h = (id(last_h_ms) != 0 && (now - id(last_h_ms) < 3000));
+               bool is_b = (id(last_b_ms) != 0 && (now - id(last_b_ms) < 5000));
+-              bool is_u = (cur_f & 0x04); // FIX BUG 0x10 -> 0x04
++              bool is_u = (id(last_u_ms) != 0 && (now - id(last_u_ms) < 3000));
+               
+               if (is_f != l_f || first_run) { id(f_st).publish_state(is_f); l_f = is_f; }
+               if (is_h != l_h || first_run) { id(h_st).publish_state(is_h); l_h = is_h; }
+
+commit ee62aa08f26f6c0b05fef502feb022d1cc9b9cdb
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Sat Mar 14 17:39:16 2026 +0100
+
+    v3.6.1 : fix bulles direct UART + regles injection documentees logic_spec
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 68412a0..8d4e175 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -1,10 +1,20 @@
+-# Contrôleur MSPA – Version 3.6.0 (BUG-FIX)
++# Contrôleur MSPA – Version 3.6.1 (BUG-FIX)
+ # Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
+ # Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
+ # Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
++# Fix  v3.6.1 : bulles UART direct (Mode 1 asynchrone, pas Sniper)
++#
++# === RÈGLES D'INJECTION : NE PAS MODIFIER SANS LIRE logic_spec.md ===
++# Mode 1 (DIRECT ASYNCHRONE) : Bulles (0x03), Consigne (0x04)
++#   -> set_action : uart_spa.write_array() direct, SANS pending_uart_id
++# Mode 2 (MITM)               : Filtration (0x02)
++#   -> MITM intercept keyboard 0x02 frame dans on_loop
++# Mode 3 (SNIPER sur 0x0D)    : Chauffage (0x01), UVC (0x19)
++#   -> pending_uart_id/val + injection sur Poll 0x0D dans on_loop
++# ======================================================================
+ 
+ substitutions:
+-  mspa_version: "3.6.0"
++  mspa_version: "3.6.1"
+   eedomus_enabled: !secret eedomus_enabled
+   eedomus_host: !secret eedomus_host
+   eedomus_api_user: !secret eedomus_api_user
+@@ -17,7 +27,7 @@ substitutions:
+ 
+ esphome:
+   name: mspa-controller
+-  friendly_name: "MSPA v3.6.0 (Bug-Fix)"
++  friendly_name: "MSPA v3.6.1 (Bug-Fix)"
+   on_boot:
+     priority: 800
+     then:
+@@ -408,12 +418,14 @@ select:
+     set_action:
+       then:
+         - lambda: |-
++            // MODE 1 : DIRECT ASYNCHRONE (Ne PAS passer par pending_uart_id/Sniper)
+             int val = 0;
+             if (x == "Niveau1") val = 1;
+             else if (x == "Niveau2") val = 2;
+             else if (x == "Niveau3") val = 3;
+-            id(pending_uart_id) = 0x03;
+-            id(pending_uart_val) = val;
++            uint8_t buf[4] = {0xA5, 0x03, (uint8_t)val, (uint8_t)(0xA5 + 0x03 + val)};
++            id(uart_spa).write_array(buf, 4);
++            ESP_LOGW("mspa_bulles", "BULLES DIRECT: val=%d", val);
+ 
+ number:
+   - platform: template
+
+commit 26d9d57eb976495574aa88b1cdd25787732ffb65
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Sat Mar 14 00:25:39 2026 +0100
+
+    v3.6.0 (Bug-Fix) : p_step global, consigne injection, sniffer Pret
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 543bcdd..68412a0 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -1,131 +1,194 @@
+-# Contrôleur MSPA – Pont UART + eedomus
+-# Référence : docs/protocol_mspa.md, docs/logic_spec.md
+-# Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
++# Contrôleur MSPA – Version 3.6.0 (BUG-FIX)
++# Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
++# Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
++# Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
+ 
+ substitutions:
+-  mspa_version: "1.0.0"
++  mspa_version: "3.6.0"
+   eedomus_enabled: !secret eedomus_enabled
+   eedomus_host: !secret eedomus_host
+   eedomus_api_user: !secret eedomus_api_user
+   eedomus_api_secret: !secret eedomus_api_secret
+-  periph_filtration: !secret eedomus_periph_filtration
+-  periph_chauffage: !secret eedomus_periph_chauffage
+-  periph_bulles: !secret eedomus_periph_bulles
+-  periph_uvc: !secret eedomus_periph_uvc
+-  periph_verrouillage: !secret eedomus_periph_verrouillage
+-  periph_consigne_temp: !secret eedomus_periph_consigne_temp
+-  periph_temp_eau: !secret eedomus_periph_temp_eau
++  static_ip: !secret static_ip
++  gateway: !secret gateway
++  subnet: !secret subnet
++  wifi_ssid: !secret wifi_ssid
++  wifi_password: !secret wifi_password
+ 
+ esphome:
+-  name: mspa-final-controller
+-  friendly_name: "Contrôleur MSPA ${mspa_version}"
++  name: mspa-controller
++  friendly_name: "MSPA v3.6.0 (Bug-Fix)"
+   on_boot:
+-    - lambda: |-
+-        id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+-        id(eedomus_reachable) = false;
+-        id(consigne_setpoint).publish_state(40.0f);
+-    # 90s pour laisser web_server/API stabiliser → UI responsive, moins d'erreurs sockets
+-    - delay: 90s
+-    - if:
+-        condition:
+-          lambda: 'return id(eedomus_enabled);'
+-        then:
+-          - script.execute: probe_eedomus
++    priority: 800
++    then:
++      - lambda: |-
++          id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
++          id(eedomus_reachable) = false;
++          id(consigne_setpoint).publish_state(40.0f);
+   on_loop:
+     then:
+       - lambda: |-
+-          if (id(pending_uart_id) != 0) {
+-            uint8_t fid = (uint8_t) id(pending_uart_id);
+-            uint8_t fv = (uint8_t) id(pending_uart_val);
+-            uint8_t f[4] = { 0xA5, fid, fv, (uint8_t)((0xA5 + fid + fv) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-            id(pending_uart_id) = 0;
+-          }
+-          static uint8_t c_buf[4], c_idx = 0;
+-          static uint8_t last_c_f = 0, last_c_h = 0, last_c_b = 0, last_c_uvc = 0;
+-          const int max_trames = 2;
+-          int n_clav = 0;
+-          while (id(uart_clavier).available() && n_clav < max_trames * 4) {
++          uint32_t now = millis();
++          static uint32_t boot_time = 0;
++          if (boot_time == 0) boot_time = now;
++          bool boot_stable = (now - boot_time > 10000); 
++
++          // --- SENS 1 : Clavier -> Moteur (INTERCEPTION v3.4.10) ---
++          static uint8_t c_buf[5];
++          static int c_idx = 0;
++          int c_limit = 0;
++
++          while (id(uart_clavier).available() && c_limit++ < 16) {
+             uint8_t c; id(uart_clavier).read_byte(&c);
++            
++            if (c_idx > 0 && c == 0xA5) {
++               for(int i=0; i<c_idx; i++) id(uart_spa).write_byte(c_buf[i]);
++               c_idx = 0;
++            }
++
++            if (c_idx == 0 && (c != 0xA5 && c != 0x00)) {
++              id(uart_spa).write_byte(c);
++              continue;
++            }
+             c_buf[c_idx++] = c;
+-            if (c_idx == 4) {
+-              n_clav += 4;
+-              if (c_buf[0] == 0xA5) {
+-                uint8_t rid = c_buf[1]; uint8_t rd = c_buf[2];
+-                if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
+-                else if (rid == 0x02 && rd != last_c_f) { id(sw_f).publish_state(rd == 0x01); last_c_f = rd; }
+-                else if (rid == 0x19 && rd != last_c_uvc) { id(sw_uvc).publish_state(rd == 0x01); last_c_uvc = rd; }
+-                else if (rid == 0x04) {
+-                  float cons = rd / 2.0f;
+-                  id(consigne_setpoint).publish_state(cons);
+-                  id(push_consigne_eedomus).execute(cons);
+-                }
+-                else if (rid == 0x03 && rd != last_c_b) {
+-                  if (rd == 0) id(sel_b).publish_state("Arret");
+-                  else if (rd == 1) id(sel_b).publish_state("Niveau1");
+-                  else if (rd == 2) id(sel_b).publish_state("Niveau2");
+-                  else if (rd == 3) id(sel_b).publish_state("Niveau3");
+-                  last_c_b = rd;
+-                }
+-                if (rid == 0x01)      c_buf[2] = id(sw_h).state ? 0x01 : 0x00;
+-                else if (rid == 0x02) c_buf[2] = (id(sw_f).state || id(sw_h).state || id(sw_uvc).state) ? 0x01 : 0x00;
+-                else if (rid == 0x19) c_buf[2] = id(sw_uvc).state ? 0x01 : 0x00;
+-                else if (rid == 0x03) {
+-                   auto opt = id(sel_b).current_option();
+-                   if (opt.size() > 0) {
+-                     if (opt == "Niveau1") c_buf[2] = 0x01;
+-                     else if (opt == "Niveau2") c_buf[2] = 0x02;
+-                     else if (opt == "Niveau3") c_buf[2] = 0x03;
+-                     else c_buf[2] = 0x00;
+-                   }
++
++            if (c_buf[0] == 0xA5 && c_idx == 4) {
++              if ((uint8_t)(c_buf[0]+c_buf[1]+c_buf[2]) == c_buf[3]) {
++                uint8_t rid = c_buf[1]; 
++                
++                // --- INJECTION SYNCHRONE (Mode Sniper sur Poll 0x0D) ---
++                if (rid == 0x0D && id(pending_uart_id) != 0) {
++                  uint8_t p_id = id(pending_uart_id);
++                  uint8_t p_val = id(pending_uart_val);
++                  
++                  // Phase A : Chauffe/UVC nécessite pompe ON
++                  if (id(p_step) == 0 && p_val == 0x01 && (p_id == 0x01 || p_id == 0x19) && !(id(raw_1A_val) & 0x01)) {
++                    id(p_step) = 1;
++                  } 
++                  else if (id(p_step) == 0) {
++                    id(p_step) = 2; // Cible directe
++                  }
++                  
++                  uint8_t inj_id = (id(p_step) == 1) ? 0x02 : p_id;
++                  uint8_t inj_val = (id(p_step) == 1) ? 0x01 : p_val;
++                  
++                  uint8_t p_buf[4] = {0xA5, inj_id, inj_val, (uint8_t)(0xA5+inj_id+inj_val)};
++                  id(uart_spa).write_array(p_buf, 4);
++                  ESP_LOGW("mspa_sniper", "INJECT SYNCHRONE (Poll) : ID 0x%02X -> %d", inj_id, inj_val);
++                  
++                  if (id(p_step) == 2 && inj_id == 0x19) { // Double UVC 19+15
++                      uint8_t p_buf2[4] = {0xA5, 0x15, inj_val, (uint8_t)(0xA5+0x15+inj_val)};
++                      id(uart_spa).write_array(p_buf2, 4);
++                  }
++                  
++                  if (id(p_step) == 1) { id(p_step) = 2; }
++                  else { id(pending_uart_id) = 0; id(p_step) = 0; }
+                 }
+-                else if (rid == 0x04) {
+-                  if (id(consigne_setpoint).has_state())
+-                    c_buf[2] = (uint8_t)(id(consigne_setpoint).state * 2.0f);
++
++                if (c_buf[2] == 0x00) {
++                  if (  (rid == 0x02 && id(sw_f).state) || 
++                        (rid == 0x01 && id(sw_h).state) || 
++                        (rid == 0x19 && id(sw_uvc).state) ) {
++                    c_buf[2] = 0x01;
++                    c_buf[3] = (uint8_t)(c_buf[0] + c_buf[1] + c_buf[2]);
++                    ESP_LOGW("mspa_mitm", "OVERRIDE: 0x%02X -> ON", rid);
++                  }
++                  else if (rid == 0x03 && id(sel_b).state != "Arret") {
++                    int val = (id(sel_b).state == "Niveau1")?1:(id(sel_b).state == "Niveau2")?2:3;
++                    c_buf[2] = (uint8_t)val;
++                    c_buf[3] = (uint8_t)(c_buf[0] + c_buf[1] + c_buf[2]);
++                  }
+                 }
+-                c_buf[3] = c_buf[0] + c_buf[1] + c_buf[2];
+-                if (!id(lock).state) id(uart_spa).write_array(c_buf, 4);
+               }
++              id(uart_spa).write_array(c_buf, 4);
++              c_idx = 0;
++            }
++            else if (c_buf[0] == 0x00 && c_idx == 5) {
++              id(uart_spa).write_array(c_buf, 5); 
+               c_idx = 0;
+             }
+           }
+-          yield();
+-          static uint8_t s_buf[4], s_idx = 0;
+-          int n_spa = 0;
+-          while (id(uart_spa).available() && n_spa < max_trames * 4) {
+-            uint8_t sc; id(uart_spa).read_byte(&sc);
+-            id(uart_clavier).write_byte(sc);
+-            s_buf[s_idx++] = sc;
+-            n_spa++;
+-            if (s_idx == 4 && s_buf[0] == 0xA5) {
+-              uint8_t ck = (s_buf[0] + s_buf[1] + s_buf[2]) & 0xFF;
+-              if (ck == s_buf[3]) {
+-                if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
+-                if (s_buf[1] == 0x1A) {
+-                   uint8_t d = s_buf[2];
+-                   // Le SPA envoie 0x1A en alternance : 0x03 (pompe+chauffage) et 0x04 (bulles).
+-                   // On fusionne au lieu d'écraser : 0x00 = tout off, 0x01/0x02/0x03 = ph, 0x04 = bulles.
+-                   static uint8_t last_1a_ph = 0, last_1a_b = 0, last_combined = 0xFF;
+-                   if (d == 0x00) { last_1a_ph = 0; last_1a_b = 0; }
+-                   else if (d == 0x01 || d == 0x02 || d == 0x03) last_1a_ph = d;
+-                   else if (d == 0x04) last_1a_b = d;
+-                   uint8_t combined = (last_1a_ph & 0x03) | (last_1a_b & 0x04);
+-                   if (combined != last_combined) {
+-                     last_combined = combined;
+-                     id(f_st).publish_state(combined & 0x01);
+-                     id(h_st).publish_state(combined & 0x02);
+-                     id(b_st).publish_state(combined & 0x04);
++
++            static uint8_t s_win[5] = {0};
++            static uint8_t last_1A_raw = 0xFF;
++            int s_limit = 0;
++
++            while (id(uart_spa).available() && s_limit++ < 12) {  // Respiration CPU (Fix lenteur UI)
++              uint8_t sc; id(uart_spa).read_byte(&sc);
++              id(uart_clavier).write_byte(sc); 
++
++              for(int i=0; i<4; i++) s_win[i] = s_win[i+1];
++              s_win[4] = sc;
++
++              uint8_t sid = 0, d1 = 0, d2 = 0, valid = 0;
++              if (s_win[1] == 0xA5 && (uint8_t)(s_win[1]+s_win[2]+s_win[3]) == s_win[4]) {
++                sid = s_win[2]; d1 = s_win[3]; valid = 4;
++              } 
++              else if (s_win[0] == 0x00 && s_win[1] != 0 && (uint8_t)(s_win[1]+s_win[2]+s_win[3] - 0x11) == s_win[4]) {
++                sid = s_win[1]; d1 = s_win[2]; d2 = s_win[3]; valid = 5;
++              }
++
++              if (valid > 0) {
++                if (sid == 0x06) id(cur_temp).publish_state(d1 / 2.0f);
++                if (sid == 0x1B) {
++                   id(last_b_ms) = now;
++                   if (d1 == 0) id(sel_b).publish_state("Arret");
++                   else if (d1 <= 3) {
++                      id(sel_b).publish_state( (d1==1)?"Niveau1":(d1==2)?"Niveau2":"Niveau3" );
++                   }
++                   float val_c = (float)d2 + 30.0f;
++                   if (std::abs(id(consigne_setpoint).state - val_c) > 0.1) {
++                       id(consigne_setpoint).publish_state(val_c);
+                    }
+                 }
++                if (sid == 0x1A) {
++                  if (d1 != 0) {
++                      id(raw_1A_val) = d1;
++                      id(last_1A_nonzero_ms) = now;
++                  } else if (now - id(last_1A_nonzero_ms) > 3000) {
++                      id(raw_1A_val) = 0;
++                  }
++                  id(status_ready).publish_state(d1 & 0x08);
++                  if (d1 & 0x01) id(last_f_ms) = now;
++                  if (d1 & 0x02) id(last_h_ms) = now;
++                }
+               }
+-              s_idx = 0;
+-            } else if (s_idx >= 4) s_idx = 0;
+-          }
++            }
++
++            static uint32_t last_p = 0;
++            static bool l_f = false, l_h = false, l_b = false, l_u = false;
++            static bool first_run = true;
++            static char last_h_buf[64] = "";
++
++            if (now - last_p > 500) {
++              last_p = now;
++
++              // --- ETATS BRUTS (DUAL SOURCE VRAI) ---
++              uint8_t cur_f = id(raw_1A_val);
++              bool is_f = (cur_f & 0x01);
++              bool is_h = (cur_f & 0x02);
++              bool is_b = (id(last_b_ms) != 0 && (now - id(last_b_ms) < 5000));
++              bool is_u = (cur_f & 0x04); // FIX BUG 0x10 -> 0x04
++              
++              if (is_f != l_f || first_run) { id(f_st).publish_state(is_f); l_f = is_f; }
++              if (is_h != l_h || first_run) { id(h_st).publish_state(is_h); l_h = is_h; }
++              if (is_b != l_b || first_run) { id(b_st).publish_state(is_b); l_b = is_b; }
++              if (is_u != l_u || first_run) { id(uvc_st).publish_state(is_u); l_u = is_u; }
++              first_run = false;
++
++              char h_buf[64];
++              sprintf(h_buf, "F:%02X | Table F:%d H:%d B:%d", cur_f, is_f, is_h, is_b);
++              if (strcmp(h_buf, last_h_buf) != 0) {
++                  id(raw_hex).publish_state(h_buf);
++                  strcpy(last_h_buf, h_buf);
++              }
++            }
+           yield();
+ 
+ esp32:
+   board: esp32dev
+-  framework: { type: arduino }
++  framework:
++    type: arduino
+ 
+ wifi:
+   power_save_mode: none
+@@ -137,98 +200,85 @@ wifi:
+         gateway: !secret gateway
+         subnet: !secret subnet
+   ap:
+-    ssid: !secret ap_ssid
+-    password: !secret ap_password
+-
+-captive_portal:
++    ssid: "MSPA-RECOVERY"
+ 
+ ota:
+-  platform: esphome
+-  version: 2
++  - platform: esphome
+ 
+-safe_mode:
+-  reboot_timeout: 10min
++logger:
++  level: ERROR
+ 
+-# API native ESPHome (port 3232) : logs, OTA. Eedomus utilise le serveur web (port 80), pas l'API.
+-api:
+-  port: 3232
+-  reboot_timeout: 0s
+-  max_connections: 4
+-  listen_backlog: 2
++web_server:
++  port: 80
+ 
+ globals:
+   - id: eedomus_enabled
+     type: bool
+-    restore_value: false
++    initial_value: "false"
+   - id: eedomus_reachable
+     type: bool
+-    restore_value: false
++    initial_value: "false"
++  - id: pending_uart_id
++    type: int
++    initial_value: "0"
++  - id: pending_uart_val
++    type: int
++    initial_value: "0"
++  - id: p_step
++    type: int
++    initial_value: "0"
++  - id: eedomus_warn_logged
++    type: bool
++    initial_value: "false"
++  - id: raw_1A_val
++    type: uint8_t
++    initial_value: "0"
++  - id: last_f_ms
++    type: uint32_t
++    initial_value: "0"
++  - id: last_h_ms
++    type: uint32_t
++    initial_value: "0"
++  - id: last_b_ms
++    type: uint32_t
++    initial_value: "0"
++  - id: last_1A_nonzero_ms
++    type: uint32_t
++    restore_value: no
++    initial_value: '0'
++  - id: last_u_ms
++    type: uint32_t
++    initial_value: "0"
+   - id: last_temp_pushed
+     type: float
+-    restore_value: false
++    initial_value: "0.0"
+   - id: last_temp_push_time_ms
+     type: uint32_t
+-    restore_value: false
++    initial_value: "0"
+   - id: last_consigne_pushed
+     type: float
+-    restore_value: false
++    initial_value: "0.0"
+   - id: last_consigne_push_time_ms
+     type: uint32_t
+-    restore_value: false
+-  - id: pending_uart_id
+-    type: int
+-    restore_value: false
+-  - id: pending_uart_val
+-    type: int
+-    restore_value: false
+-  - id: eedomus_warn_logged
+-    type: bool
+-    restore_value: false
++    initial_value: "0"
+ 
+ http_request:
+-  useragent: "Mozilla/5.0"
+-  timeout: 1s
+-  verify_ssl: false
+-
+-logger:
+-  level: INFO
+-  baud_rate: 0
+-
+-# Probe eedomus : 120s si joignable (dev avec UI), 5 min si injoignable → UI responsive
+-interval:
+-  - interval: 120s
+-    then:
+-      - if:
+-          condition:
+-            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+-          then:
+-            - script.execute: probe_eedomus
+-  - interval: 5min
+-    then:
+-      - if:
+-          condition:
+-            lambda: 'return id(eedomus_enabled) && !id(eedomus_reachable);'
+-          then:
+-            - script.execute: probe_eedomus
+-
+-# Dev : garder pour l'UI. Prod : commenter pour libérer RAM/sockets et faciliter l'OTA.
+-# version: 3 pour respecter sorting_weight (ordre d'affichage des entités)
+-web_server:
+-  port: 80
+-  version: 3
++  useragent: esphome/mspa
++  timeout: 5s
+ 
+ uart:
+   - id: uart_spa
+     tx_pin: 17
+     rx_pin: 16
+     baud_rate: 9600
++    rx_buffer_size: 1024
+   - id: uart_clavier
+     tx_pin: 13
+     rx_pin: 14
+     baud_rate: 9600
++    rx_buffer_size: 1024
+ 
+ script:
+-  # Test reachabilité eedomus (GET léger toutes les 30s)
+   - id: probe_eedomus
+     mode: single
+     then:
+@@ -243,165 +293,116 @@ script:
+           on_error:
+             then:
+               - lambda: 'id(eedomus_reachable) = false;'
+-              - if:
+-                  condition:
+-                    lambda: 'return !id(eedomus_warn_logged);'
+-                  then:
+-                    - lambda: 'id(eedomus_warn_logged) = true;'
+-                    - logger.log:
+-                        level: WARN
+-                        format: "eedomus injoignable ou URL invalide. Si logs montrent IP_OU_HOST_EEDOMUS, remplacer eedomus_host (et api_user/secret) dans secrets.yaml."
+-
+-  - id: push_eedomus
+-    mode: queued
+-    parameters:
+-      p_id: int
+-      p_val: int
+-    then:
+-      - if:
+-          condition:
+-            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+-          then:
+-            - http_request.get:
+-                url: !lambda |-
+-                  char url[256];
+-                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
+-                  return url;
+-
+-  - id: push_temp_eedomus
+-    mode: single
+-    parameters:
+-      p_id: int
+-      p_val: float
+-    then:
+-      - if:
+-          condition:
+-            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+-          then:
+-            - http_request.get:
+-                url: !lambda |-
+-                  char url[256];
+-                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+-                  return url;
+-  - id: push_consigne_eedomus
+-    mode: single
+-    parameters:
+-      p_val: float
+-    then:
+-      - lambda: |-
+-          if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+-          float cur = p_val;
+-          uint32_t now = millis();
+-          float last_val = id(last_consigne_pushed);
+-          uint32_t last = id(last_consigne_push_time_ms);
+-          if (last == 0) last = 1;
+-          if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+-            id(last_consigne_pushed) = cur;
+-            id(last_consigne_push_time_ms) = now;
+-            id(push_temp_eedomus).execute(${periph_consigne_temp}, cur);
+-          }
++
++# --- ORDRE D'AFFICHAGE ---
++
++text_sensor:
++  - platform: template
++    name: "Dernière Trame"
++    id: last_frame_ui
++    icon: "mdi:history"
++  - platform: template
++    name: "MSPA Audit RAW"
++    id: raw_hex
++    icon: "mdi:hexadecimal"
++
++button:
++  - platform: template
++    name: "Reset Instantané"
++    icon: "mdi:refresh"
++    on_press:
++      then:
++        - lambda: |-
++            // On purge le timer 20s immédiatement pour éteindre l'UI
++            id(last_f_ms) = 0; id(last_h_ms) = 0; id(last_b_ms) = 0;
++            id(f_st).publish_state(false); id(h_st).publish_state(false); id(b_st).publish_state(false);
++            ESP_LOGW("mspa", "RESET INSTANTANÉ");
++
++binary_sensor:
++  - platform: template
++    name: "Etat reel UVC"
++    id: uvc_st
++    icon: "mdi:check-circle-outline"
++  - platform: template
++    name: "Etat reel bulles"
++    id: b_st
++    icon: "mdi:check-circle-outline"
++  - platform: template
++    name: "Etat reel chauffage"
++    id: h_st
++    icon: "mdi:check-circle-outline"
++  - platform: template
++    name: "Etat reel filtration"
++    id: f_st
++    icon: "mdi:check-circle-outline"
++  - platform: template
++    name: "Systeme Pret (Bit 3)"
++    id: status_ready
++    icon: "mdi:check-network"
++
++sensor:
++  - platform: template
++    name: "Temperature eau"
++    id: cur_temp
++    unit_of_measurement: "°C"
++    update_interval: never
+ 
+ switch:
+   - platform: template
+     name: "Filtration"
+     id: sw_f
+-    web_server:
+-      sorting_weight: 1
+     optimistic: true
+     on_turn_on:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_filtration}
+-            p_val: 100
++            id(pending_uart_id) = 0x02;
++            id(pending_uart_val) = 0x01;
+     on_turn_off:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x02, 0x00, (uint8_t)((0xA5 + 0x02 + 0x00) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_filtration}
+-            p_val: 0
++            id(pending_uart_id) = 0x02;
++            id(pending_uart_val) = 0x00;
+   - platform: template
+     name: "Chauffage"
+     id: sw_h
+-    web_server:
+-      sorting_weight: 2
+     optimistic: true
+-    # Protocole : "Chauffage (01) force 02 à 01" (doc) → la pompe est pilotée par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arrêt si pas d'eau
+     on_turn_on:
+       then:
+         - lambda: |-
+-            uint8_t f02[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+-            id(uart_spa).write_array(f02, 4);
+-            uint8_t f01[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
+-            id(uart_spa).write_array(f01, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_chauffage}
+-            p_val: 100
++            id(p_step) = 0;
++            id(pending_uart_id) = 0x01;
++            id(pending_uart_val) = 0x01;
+     on_turn_off:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x01, 0x00, (uint8_t)((0xA5 + 0x01 + 0x00) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_chauffage}
+-            p_val: 0
++            id(p_step) = 0;
++            id(pending_uart_id) = 0x01;
++            id(pending_uart_val) = 0x00;
+   - platform: template
+     name: "UVC"
+     id: sw_uvc
+-    web_server:
+-      sorting_weight: 3
+     optimistic: true
+     on_turn_on:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x19, 0x01, (uint8_t)((0xA5 + 0x19 + 0x01) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_uvc}
+-            p_val: 100
++            id(p_step) = 0;
++            id(pending_uart_id) = 0x19;
++            id(pending_uart_val) = 0x01;
+     on_turn_off:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x19, 0x00, (uint8_t)((0xA5 + 0x19 + 0x00) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_uvc}
+-            p_val: 0
++            id(p_step) = 0;
++            id(pending_uart_id) = 0x19;
++            id(pending_uart_val) = 0x00;
+   - platform: template
+     name: "Verrouillage clavier"
+     id: lock
+-    web_server:
+-      sorting_weight: 4
+     optimistic: true
+-    on_turn_on:
+-      then:
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_verrouillage}
+-            p_val: 100
+-    on_turn_off:
+-      then:
+-        - script.execute:
+-            id: push_eedomus
+-            p_id: ${periph_verrouillage}
+-            p_val: 0
+ 
+ select:
+   - platform: template
+     name: "Mode bulles"
+     id: sel_b
+-    web_server:
+-      sorting_weight: 5
+     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+     optimistic: true
+     set_action:
+@@ -411,69 +412,21 @@ select:
+             if (x == "Niveau1") val = 1;
+             else if (x == "Niveau2") val = 2;
+             else if (x == "Niveau3") val = 3;
+-            uint8_t f[4] = { 0xA5, 0x03, (uint8_t)val, (uint8_t)((0xA5 + 0x03 + val) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
+-            id(push_eedomus).execute(${periph_bulles}, val);
+-
+-sensor:
+-  - platform: template
+-    name: "Temperature eau"
+-    id: cur_temp
+-    web_server:
+-      sorting_weight: 7
+-    unit_of_measurement: "°C"
+-    update_interval: never
+-    on_value:
+-      then:
+-        # Throttle : max 1 envoi / 60s ou si variation >= 0.5°C (évite saturation file)
+-        - lambda: |-
+-            if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+-            float cur = x;
+-            uint32_t now = millis();
+-            uint32_t last = id(last_temp_push_time_ms);
+-            float last_val = id(last_temp_pushed);
+-            if (last == 0) { last = 1; }
+-            if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+-              id(last_temp_pushed) = cur;
+-              id(last_temp_push_time_ms) = now;
+-              id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
+-            }
++            id(pending_uart_id) = 0x03;
++            id(pending_uart_val) = val;
+ 
+ number:
+   - platform: template
+     name: "Temperature consigne"
+     id: consigne_setpoint
+-    web_server:
+-      sorting_weight: 6
+     min_value: 20
+     max_value: 40
+     step: 0.5
+     unit_of_measurement: "°C"
+     set_action:
+-      - lambda: |-
+-          uint8_t frame[4];
+-          frame[0] = 0xA5;
+-          frame[1] = 0x04;
+-          frame[2] = (uint8_t)(x * 2.0f);
+-          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
+-          id(uart_spa).write_array(frame, 4);
+-    on_value:
+       then:
+-        - lambda: id(push_consigne_eedomus).execute(x);
+-
+-binary_sensor:
+-  - platform: template
+-    name: "Etat reel filtration"
+-    id: f_st
+-    web_server:
+-      sorting_weight: 8
+-  - platform: template
+-    name: "Etat reel chauffage"
+-    id: h_st
+-    web_server:
+-      sorting_weight: 9
+-  - platform: template
+-    name: "Etat reel bulles"
+-    id: b_st
+-    web_server:
+-      sorting_weight: 10
++        - lambda: |-
++            uint8_t val = (uint8_t)(x * 2.0f);
++            uint8_t buf[4] = {0xA5, 0x04, val, (uint8_t)(0xA5 + 0x04 + val)};
++            id(uart_spa).write_array(buf, 4);
++            ESP_LOGW("mspa_consigne", "CONSIGNE INJECT: %.1fC -> 0x%02X", x, val);
+
+commit 123ee79df0f802a66740e25e4d11aa2e44b00254
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Fri Feb 20 16:33:19 2026 +0100
+
+    Etat reel 0x1A: fusion des trames alternÃ©es (0x03 ph + 0x04 bulles) au lieu d'Ã©craser
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index fef7d31..543bcdd 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -103,12 +103,18 @@ esphome:
+                 if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
+                 if (s_buf[1] == 0x1A) {
+                    uint8_t d = s_buf[2];
+-                   static uint8_t last_1a = 0xFF;
+-                   if (d != last_1a) {
+-                     last_1a = d;
+-                     id(f_st).publish_state(d & 0x01);
+-                     id(h_st).publish_state(d & 0x02);
+-                     id(b_st).publish_state(d & 0x04);
++                   // Le SPA envoie 0x1A en alternance : 0x03 (pompe+chauffage) et 0x04 (bulles).
++                   // On fusionne au lieu d'écraser : 0x00 = tout off, 0x01/0x02/0x03 = ph, 0x04 = bulles.
++                   static uint8_t last_1a_ph = 0, last_1a_b = 0, last_combined = 0xFF;
++                   if (d == 0x00) { last_1a_ph = 0; last_1a_b = 0; }
++                   else if (d == 0x01 || d == 0x02 || d == 0x03) last_1a_ph = d;
++                   else if (d == 0x04) last_1a_b = d;
++                   uint8_t combined = (last_1a_ph & 0x03) | (last_1a_b & 0x04);
++                   if (combined != last_combined) {
++                     last_combined = combined;
++                     id(f_st).publish_state(combined & 0x01);
++                     id(h_st).publish_state(combined & 0x02);
++                     id(b_st).publish_state(combined & 0x04);
+                    }
+                 }
+               }
+@@ -206,8 +212,10 @@ interval:
+             - script.execute: probe_eedomus
+ 
+ # Dev : garder pour l'UI. Prod : commenter pour libérer RAM/sockets et faciliter l'OTA.
++# version: 3 pour respecter sorting_weight (ordre d'affichage des entités)
+ web_server:
+   port: 80
++  version: 3
+ 
+ uart:
+   - id: uart_spa
+@@ -297,6 +305,8 @@ switch:
+   - platform: template
+     name: "Filtration"
+     id: sw_f
++    web_server:
++      sorting_weight: 1
+     optimistic: true
+     on_turn_on:
+       then:
+@@ -319,6 +329,8 @@ switch:
+   - platform: template
+     name: "Chauffage"
+     id: sw_h
++    web_server:
++      sorting_weight: 2
+     optimistic: true
+     # Protocole : "Chauffage (01) force 02 à 01" (doc) → la pompe est pilotée par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arrêt si pas d'eau
+     on_turn_on:
+@@ -344,6 +356,8 @@ switch:
+   - platform: template
+     name: "UVC"
+     id: sw_uvc
++    web_server:
++      sorting_weight: 3
+     optimistic: true
+     on_turn_on:
+       then:
+@@ -366,6 +380,8 @@ switch:
+   - platform: template
+     name: "Verrouillage clavier"
+     id: lock
++    web_server:
++      sorting_weight: 4
+     optimistic: true
+     on_turn_on:
+       then:
+@@ -384,6 +400,8 @@ select:
+   - platform: template
+     name: "Mode bulles"
+     id: sel_b
++    web_server:
++      sorting_weight: 5
+     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+     optimistic: true
+     set_action:
+@@ -397,30 +415,12 @@ select:
+             id(uart_spa).write_array(f, 4);
+             id(push_eedomus).execute(${periph_bulles}, val);
+ 
+-number:
+-  - platform: template
+-    name: "Temperature consigne"
+-    id: consigne_setpoint
+-    min_value: 20
+-    max_value: 40
+-    step: 0.5
+-    unit_of_measurement: "°C"
+-    set_action:
+-      - lambda: |-
+-          uint8_t frame[4];
+-          frame[0] = 0xA5;
+-          frame[1] = 0x04;
+-          frame[2] = (uint8_t)(x * 2.0f);
+-          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
+-          id(uart_spa).write_array(frame, 4);
+-    on_value:
+-      then:
+-        - lambda: id(push_consigne_eedomus).execute(x);
+-
+ sensor:
+   - platform: template
+     name: "Temperature eau"
+     id: cur_temp
++    web_server:
++      sorting_weight: 7
+     unit_of_measurement: "°C"
+     update_interval: never
+     on_value:
+@@ -439,13 +439,41 @@ sensor:
+               id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
+             }
+ 
++number:
++  - platform: template
++    name: "Temperature consigne"
++    id: consigne_setpoint
++    web_server:
++      sorting_weight: 6
++    min_value: 20
++    max_value: 40
++    step: 0.5
++    unit_of_measurement: "°C"
++    set_action:
++      - lambda: |-
++          uint8_t frame[4];
++          frame[0] = 0xA5;
++          frame[1] = 0x04;
++          frame[2] = (uint8_t)(x * 2.0f);
++          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
++          id(uart_spa).write_array(frame, 4);
++    on_value:
++      then:
++        - lambda: id(push_consigne_eedomus).execute(x);
++
+ binary_sensor:
+   - platform: template
+     name: "Etat reel filtration"
+     id: f_st
++    web_server:
++      sorting_weight: 8
+   - platform: template
+     name: "Etat reel chauffage"
+     id: h_st
++    web_server:
++      sorting_weight: 9
+   - platform: template
+     name: "Etat reel bulles"
+     id: b_st
++    web_server:
++      sorting_weight: 10
+
+commit bbe503a1440d7c7a78e970efb0ff4b5dd557b42c
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Fri Feb 20 12:19:04 2026 +0100
+
+    UI: version dans l'intitulÃ© (friendly_name 1.0.0)
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index e2d0e2c..fef7d31 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -3,6 +3,7 @@
+ # Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
+ 
+ substitutions:
++  mspa_version: "1.0.0"
+   eedomus_enabled: !secret eedomus_enabled
+   eedomus_host: !secret eedomus_host
+   eedomus_api_user: !secret eedomus_api_user
+@@ -17,6 +18,7 @@ substitutions:
+ 
+ esphome:
+   name: mspa-final-controller
++  friendly_name: "Contrôleur MSPA ${mspa_version}"
+   on_boot:
+     - lambda: |-
+         id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+
+commit 7f5a154e9557e35fdd4c4a66f0e77e2de1f21835
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Thu Feb 19 16:42:46 2026 +0100
+
+    Nettoyage: suppression BLE et configs de test, doc eedomus/consigne, WARN log
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 4c33903..e2d0e2c 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -173,6 +173,9 @@ globals:
+   - id: pending_uart_val
+     type: int
+     restore_value: false
++  - id: eedomus_warn_logged
++    type: bool
++    restore_value: false
+ 
+ http_request:
+   useragent: "Mozilla/5.0"
+@@ -230,6 +233,14 @@ script:
+           on_error:
+             then:
+               - lambda: 'id(eedomus_reachable) = false;'
++              - if:
++                  condition:
++                    lambda: 'return !id(eedomus_warn_logged);'
++                  then:
++                    - lambda: 'id(eedomus_warn_logged) = true;'
++                    - logger.log:
++                        level: WARN
++                        format: "eedomus injoignable ou URL invalide. Si logs montrent IP_OU_HOST_EEDOMUS, remplacer eedomus_host (et api_user/secret) dans secrets.yaml."
+ 
+   - id: push_eedomus
+     mode: queued
+@@ -307,11 +318,14 @@ switch:
+     name: "Chauffage"
+     id: sw_h
+     optimistic: true
++    # Protocole : "Chauffage (01) force 02 à 01" (doc) → la pompe est pilotée par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arrêt si pas d'eau
+     on_turn_on:
+       then:
+         - lambda: |-
+-            uint8_t f[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
+-            id(uart_spa).write_array(f, 4);
++            uint8_t f02[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
++            id(uart_spa).write_array(f02, 4);
++            uint8_t f01[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
++            id(uart_spa).write_array(f01, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_chauffage}
+@@ -383,7 +397,7 @@ select:
+ 
+ number:
+   - platform: template
+-    name: "Température consigne"
++    name: "Temperature consigne"
+     id: consigne_setpoint
+     min_value: 20
+     max_value: 40
+@@ -403,7 +417,7 @@ number:
+ 
+ sensor:
+   - platform: template
+-    name: "Température eau"
++    name: "Temperature eau"
+     id: cur_temp
+     unit_of_measurement: "°C"
+     update_interval: never
+@@ -425,11 +439,11 @@ sensor:
+ 
+ binary_sensor:
+   - platform: template
+-    name: "État réel filtration"
++    name: "Etat reel filtration"
+     id: f_st
+   - platform: template
+-    name: "État réel chauffage"
++    name: "Etat reel chauffage"
+     id: h_st
+   - platform: template
+-    name: "État réel bulles"
++    name: "Etat reel bulles"
+     id: b_st
+
+commit d87e4721f1ae48d83f424c1fd527c33bdafce6fb
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Wed Feb 18 03:29:02 2026 +0100
+
+    API port 3232, captive_portal + AP password, doc OTA (fermer UI avant flash)
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index a3452e1..4c33903 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -128,7 +128,11 @@ wifi:
+         static_ip: !secret static_ip
+         gateway: !secret gateway
+         subnet: !secret subnet
+-  ap: { ssid: !secret ap_ssid }
++  ap:
++    ssid: !secret ap_ssid
++    password: !secret ap_password
++
++captive_portal:
+ 
+ ota:
+   platform: esphome
+@@ -137,10 +141,9 @@ ota:
+ safe_mode:
+   reboot_timeout: 10min
+ 
+-# API native ESPHome (port 3232) : logs, OTA. Eedomus n'utilise pas l'API : il pilote l'ESP via HTTP (port 80).
+-# reboot_timeout: 0s = pas de reboot quand aucun client API (eedomus utilise le serveur web).
+-# max_connections / listen_backlog : limiter les connexions API pour libérer des sockets (web_server + requêtes eedomus).
++# API native ESPHome (port 3232) : logs, OTA. Eedomus utilise le serveur web (port 80), pas l'API.
+ api:
++  port: 3232
+   reboot_timeout: 0s
+   max_connections: 4
+   listen_backlog: 2
+
+commit ab4eb413e4ab720de40ce38cb5f260f4474ef78b
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Wed Feb 18 03:01:37 2026 +0100
+
+    API max_connections/listen_backlog, doc responsive/saturation, config eedomus Bulles, CHANGELOG
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index f4c6d6b..a3452e1 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -139,8 +139,11 @@ safe_mode:
+ 
+ # API native ESPHome (port 3232) : logs, OTA. Eedomus n'utilise pas l'API : il pilote l'ESP via HTTP (port 80).
+ # reboot_timeout: 0s = pas de reboot quand aucun client API (eedomus utilise le serveur web).
++# max_connections / listen_backlog : limiter les connexions API pour libérer des sockets (web_server + requêtes eedomus).
+ api:
+   reboot_timeout: 0s
++  max_connections: 4
++  listen_backlog: 2
+ 
+ globals:
+   - id: eedomus_enabled
+
+commit 765047c66be476b4fa24d868c52018645e002c1f
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Wed Feb 18 02:42:34 2026 +0100
+
+    Doc: eedomus pilote l'ESP via HTTP (serveur web port 80), pas l'API native ESPHome (3232)
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 473d24c..f4c6d6b 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -137,7 +137,8 @@ ota:
+ safe_mode:
+   reboot_timeout: 10min
+ 
+-# API native : logs à distance. reboot_timeout: 0s = pas de reboot si aucun client (eedomus utilise HTTP).
++# API native ESPHome (port 3232) : logs, OTA. Eedomus n'utilise pas l'API : il pilote l'ESP via HTTP (port 80).
++# reboot_timeout: 0s = pas de reboot quand aucun client API (eedomus utilise le serveur web).
+ api:
+   reboot_timeout: 0s
+ 
+
+commit 597020ea1df0af401d3d47081252ca6cdc84361a
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Wed Feb 18 02:40:52 2026 +0100
+
+    Verrouillage: bloquer seulement clavier->SPA, eedomus/UI actifs. Boutons UART direct. UI: 90s/120s, yield x2. Doc: logic_spec lock, CHANGELOG, depannage_logs (analyse HTTP/socket).
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index c2fe355..473d24c 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -22,7 +22,8 @@ esphome:
+         id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+         id(eedomus_reachable) = false;
+         id(consigne_setpoint).publish_state(40.0f);
+-    - delay: 60s
++    # 90s pour laisser web_server/API stabiliser → UI responsive, moins d'erreurs sockets
++    - delay: 90s
+     - if:
+         condition:
+           lambda: 'return id(eedomus_enabled);'
+@@ -35,7 +36,7 @@ esphome:
+             uint8_t fid = (uint8_t) id(pending_uart_id);
+             uint8_t fv = (uint8_t) id(pending_uart_val);
+             uint8_t f[4] = { 0xA5, fid, fv, (uint8_t)((0xA5 + fid + fv) & 0xFF) };
+-            if (!id(lock).state) id(uart_spa).write_array(f, 4);
++            id(uart_spa).write_array(f, 4);
+             id(pending_uart_id) = 0;
+           }
+           static uint8_t c_buf[4], c_idx = 0;
+@@ -86,6 +87,7 @@ esphome:
+               c_idx = 0;
+             }
+           }
++          yield();
+           static uint8_t s_buf[4], s_idx = 0;
+           int n_spa = 0;
+           while (id(uart_spa).available() && n_spa < max_trames * 4) {
+@@ -174,9 +176,9 @@ logger:
+   level: INFO
+   baud_rate: 0
+ 
+-# Probe eedomus : 60s si joignable, 5 min si injoignable (limite sockets → stabilité)
++# Probe eedomus : 120s si joignable (dev avec UI), 5 min si injoignable → UI responsive
+ interval:
+-  - interval: 60s
++  - interval: 120s
+     then:
+       - if:
+           condition:
+@@ -191,7 +193,7 @@ interval:
+           then:
+             - script.execute: probe_eedomus
+ 
+-# Optionnel : en prod tu peux commenter pour libérer RAM/sockets (tout passe par eedomus).
++# Dev : garder pour l'UI. Prod : commenter pour libérer RAM/sockets et faciliter l'OTA.
+ web_server:
+   port: 80
+ 
+@@ -278,14 +280,18 @@ switch:
+     optimistic: true
+     on_turn_on:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x01;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_filtration}
+             p_val: 100
+     on_turn_off:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x00;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x02, 0x00, (uint8_t)((0xA5 + 0x02 + 0x00) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_filtration}
+@@ -296,14 +302,18 @@ switch:
+     optimistic: true
+     on_turn_on:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x01;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_chauffage}
+             p_val: 100
+     on_turn_off:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x00;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x01, 0x00, (uint8_t)((0xA5 + 0x01 + 0x00) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_chauffage}
+@@ -314,14 +324,18 @@ switch:
+     optimistic: true
+     on_turn_on:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x01;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x19, 0x01, (uint8_t)((0xA5 + 0x19 + 0x01) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_uvc}
+             p_val: 100
+     on_turn_off:
+       then:
+-        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x00;'
++        - lambda: |-
++            uint8_t f[4] = { 0xA5, 0x19, 0x00, (uint8_t)((0xA5 + 0x19 + 0x00) & 0xFF) };
++            id(uart_spa).write_array(f, 4);
+         - script.execute:
+             id: push_eedomus
+             p_id: ${periph_uvc}
+@@ -357,7 +371,7 @@ select:
+             else if (x == "Niveau2") val = 2;
+             else if (x == "Niveau3") val = 3;
+             uint8_t f[4] = { 0xA5, 0x03, (uint8_t)val, (uint8_t)((0xA5 + 0x03 + val) & 0xFF) };
+-            if (!id(lock).state) id(uart_spa).write_array(f, 4);
++            id(uart_spa).write_array(f, 4);
+             id(push_eedomus).execute(${periph_bulles}, val);
+ 
+ number:
+
+commit 7c6895489cf7eae16b30e27e223fa7f013ad8282
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Wed Feb 18 01:04:53 2026 +0100
+
+    Doc: CHANGELOG, secrets_reference, README. ContrÃ´leur: stabilitÃ©, file UART UI, IP fixe. Sniffer: prÃ©fixes [BOOT]/[+Nms]/[apres 0x0D], IDs 0x08/0x0D nommÃ©s
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 68469f2..c2fe355 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -21,7 +21,8 @@ esphome:
+     - lambda: |-
+         id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+         id(eedomus_reachable) = false;
+-    - delay: 3s
++        id(consigne_setpoint).publish_state(40.0f);
++    - delay: 60s
+     - if:
+         condition:
+           lambda: 'return id(eedomus_enabled);'
+@@ -30,13 +31,22 @@ esphome:
+   on_loop:
+     then:
+       - lambda: |-
+-          // --- LOGIQUE UART (Clavier & Spa) ---
++          if (id(pending_uart_id) != 0) {
++            uint8_t fid = (uint8_t) id(pending_uart_id);
++            uint8_t fv = (uint8_t) id(pending_uart_val);
++            uint8_t f[4] = { 0xA5, fid, fv, (uint8_t)((0xA5 + fid + fv) & 0xFF) };
++            if (!id(lock).state) id(uart_spa).write_array(f, 4);
++            id(pending_uart_id) = 0;
++          }
+           static uint8_t c_buf[4], c_idx = 0;
+           static uint8_t last_c_f = 0, last_c_h = 0, last_c_b = 0, last_c_uvc = 0;
+-          while (id(uart_clavier).available()) {
++          const int max_trames = 2;
++          int n_clav = 0;
++          while (id(uart_clavier).available() && n_clav < max_trames * 4) {
+             uint8_t c; id(uart_clavier).read_byte(&c);
+             c_buf[c_idx++] = c;
+             if (c_idx == 4) {
++              n_clav += 4;
+               if (c_buf[0] == 0xA5) {
+                 uint8_t rid = c_buf[1]; uint8_t rd = c_buf[2];
+                 if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
+@@ -59,10 +69,16 @@ esphome:
+                 else if (rid == 0x19) c_buf[2] = id(sw_uvc).state ? 0x01 : 0x00;
+                 else if (rid == 0x03) {
+                    auto opt = id(sel_b).current_option();
+-                   if (opt == "Niveau1") c_buf[2] = 0x01;
+-                   else if (opt == "Niveau2") c_buf[2] = 0x02;
+-                   else if (opt == "Niveau3") c_buf[2] = 0x03;
+-                   else c_buf[2] = 0x00;
++                   if (opt.size() > 0) {
++                     if (opt == "Niveau1") c_buf[2] = 0x01;
++                     else if (opt == "Niveau2") c_buf[2] = 0x02;
++                     else if (opt == "Niveau3") c_buf[2] = 0x03;
++                     else c_buf[2] = 0x00;
++                   }
++                }
++                else if (rid == 0x04) {
++                  if (id(consigne_setpoint).has_state())
++                    c_buf[2] = (uint8_t)(id(consigne_setpoint).state * 2.0f);
+                 }
+                 c_buf[3] = c_buf[0] + c_buf[1] + c_buf[2];
+                 if (!id(lock).state) id(uart_spa).write_array(c_buf, 4);
+@@ -71,41 +87,57 @@ esphome:
+             }
+           }
+           static uint8_t s_buf[4], s_idx = 0;
+-          while (id(uart_spa).available()) {
++          int n_spa = 0;
++          while (id(uart_spa).available() && n_spa < max_trames * 4) {
+             uint8_t sc; id(uart_spa).read_byte(&sc);
+             id(uart_clavier).write_byte(sc);
+             s_buf[s_idx++] = sc;
++            n_spa++;
+             if (s_idx == 4 && s_buf[0] == 0xA5) {
+-              if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
+-              if (s_buf[1] == 0x1A) {
+-                 uint8_t d = s_buf[2];
+-                 static uint8_t last_1a = 0xFF;
+-                 if (d != last_1a) {
+-                   last_1a = d;
+-                   id(f_st).publish_state(d & 0x01);
+-                   id(h_st).publish_state(d & 0x02);
+-                   id(b_st).publish_state(d & 0x04);
+-                 }
++              uint8_t ck = (s_buf[0] + s_buf[1] + s_buf[2]) & 0xFF;
++              if (ck == s_buf[3]) {
++                if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
++                if (s_buf[1] == 0x1A) {
++                   uint8_t d = s_buf[2];
++                   static uint8_t last_1a = 0xFF;
++                   if (d != last_1a) {
++                     last_1a = d;
++                     id(f_st).publish_state(d & 0x01);
++                     id(h_st).publish_state(d & 0x02);
++                     id(b_st).publish_state(d & 0x04);
++                   }
++                }
+               }
+               s_idx = 0;
+             } else if (s_idx >= 4) s_idx = 0;
+           }
++          yield();
+ 
+ esp32:
+   board: esp32dev
+   framework: { type: arduino }
+ 
+ wifi:
++  power_save_mode: none
+   networks:
+     - ssid: !secret wifi_ssid
+       password: !secret wifi_password
++      manual_ip:
++        static_ip: !secret static_ip
++        gateway: !secret gateway
++        subnet: !secret subnet
+   ap: { ssid: !secret ap_ssid }
+ 
+ ota:
+   platform: esphome
++  version: 2
++
++safe_mode:
++  reboot_timeout: 10min
+ 
+-# API native : permet esphome logs --device <IP> pour récupérer les logs à distance (sans copier/coller)
++# API native : logs à distance. reboot_timeout: 0s = pas de reboot si aucun client (eedomus utilise HTTP).
+ api:
++  reboot_timeout: 0s
+ 
+ globals:
+   - id: eedomus_enabled
+@@ -126,26 +158,40 @@ globals:
+   - id: last_consigne_push_time_ms
+     type: uint32_t
+     restore_value: false
++  - id: pending_uart_id
++    type: int
++    restore_value: false
++  - id: pending_uart_val
++    type: int
++    restore_value: false
+ 
+ http_request:
+   useragent: "Mozilla/5.0"
+-  timeout: 2s
++  timeout: 1s
+   verify_ssl: false
+ 
+ logger:
+   level: INFO
+   baud_rate: 0
+ 
+-# Test eedomus toutes les 30s (évite envois si box injoignable)
++# Probe eedomus : 60s si joignable, 5 min si injoignable (limite sockets → stabilité)
+ interval:
+-  - interval: 30s
++  - interval: 60s
+     then:
+       - if:
+           condition:
+-            lambda: 'return id(eedomus_enabled);'
++            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
++          then:
++            - script.execute: probe_eedomus
++  - interval: 5min
++    then:
++      - if:
++          condition:
++            lambda: 'return id(eedomus_enabled) && !id(eedomus_reachable);'
+           then:
+             - script.execute: probe_eedomus
+ 
++# Optionnel : en prod tu peux commenter pour libérer RAM/sockets (tout passe par eedomus).
+ web_server:
+   port: 80
+ 
+@@ -230,26 +276,72 @@ switch:
+     name: "Filtration"
+     id: sw_f
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 0 } ] }
++    on_turn_on:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x01;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_filtration}
++            p_val: 100
++    on_turn_off:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x02; id(pending_uart_val) = 0x00;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_filtration}
++            p_val: 0
+   - platform: template
+     name: "Chauffage"
+     id: sw_h
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 0 } ] }
++    on_turn_on:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x01;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_chauffage}
++            p_val: 100
++    on_turn_off:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x01; id(pending_uart_val) = 0x00;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_chauffage}
++            p_val: 0
+   - platform: template
+     name: "UVC"
+     id: sw_uvc
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 0 } ] }
++    on_turn_on:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x01;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_uvc}
++            p_val: 100
++    on_turn_off:
++      then:
++        - lambda: 'id(pending_uart_id) = 0x19; id(pending_uart_val) = 0x00;'
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_uvc}
++            p_val: 0
+   - platform: template
+     name: "Verrouillage clavier"
+     id: lock
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 0 } ] }
++    on_turn_on:
++      then:
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_verrouillage}
++            p_val: 100
++    on_turn_off:
++      then:
++        - script.execute:
++            id: push_eedomus
++            p_id: ${periph_verrouillage}
++            p_val: 0
+ 
+ select:
+   - platform: template
+@@ -264,6 +356,8 @@ select:
+             if (x == "Niveau1") val = 1;
+             else if (x == "Niveau2") val = 2;
+             else if (x == "Niveau3") val = 3;
++            uint8_t f[4] = { 0xA5, 0x03, (uint8_t)val, (uint8_t)((0xA5 + 0x03 + val) & 0xFF) };
++            if (!id(lock).state) id(uart_spa).write_array(f, 4);
+             id(push_eedomus).execute(${periph_bulles}, val);
+ 
+ number:
+
+commit 7e2154e64c39bfe6beab5c609c7b5f0240d99fab
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Tue Feb 17 19:04:47 2026 +0100
+
+    Doc et code sans infos sensibles: IDs eedomus dans secrets, pas d'IP en dur
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index 2efdab0..68469f2 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -7,6 +7,13 @@ substitutions:
+   eedomus_host: !secret eedomus_host
+   eedomus_api_user: !secret eedomus_api_user
+   eedomus_api_secret: !secret eedomus_api_secret
++  periph_filtration: !secret eedomus_periph_filtration
++  periph_chauffage: !secret eedomus_periph_chauffage
++  periph_bulles: !secret eedomus_periph_bulles
++  periph_uvc: !secret eedomus_periph_uvc
++  periph_verrouillage: !secret eedomus_periph_verrouillage
++  periph_consigne_temp: !secret eedomus_periph_consigne_temp
++  periph_temp_eau: !secret eedomus_periph_temp_eau
+ 
+ esphome:
+   name: mspa-final-controller
+@@ -35,6 +42,11 @@ esphome:
+                 if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
+                 else if (rid == 0x02 && rd != last_c_f) { id(sw_f).publish_state(rd == 0x01); last_c_f = rd; }
+                 else if (rid == 0x19 && rd != last_c_uvc) { id(sw_uvc).publish_state(rd == 0x01); last_c_uvc = rd; }
++                else if (rid == 0x04) {
++                  float cons = rd / 2.0f;
++                  id(consigne_setpoint).publish_state(cons);
++                  id(push_consigne_eedomus).execute(cons);
++                }
+                 else if (rid == 0x03 && rd != last_c_b) {
+                   if (rd == 0) id(sel_b).publish_state("Arret");
+                   else if (rd == 1) id(sel_b).publish_state("Niveau1");
+@@ -66,9 +78,14 @@ esphome:
+             if (s_idx == 4 && s_buf[0] == 0xA5) {
+               if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
+               if (s_buf[1] == 0x1A) {
+-                 id(f_st).publish_state(s_buf[2] & 0x01);
+-                 id(h_st).publish_state(s_buf[2] & 0x02);
+-                 id(b_st).publish_state(s_buf[2] & 0x04);
++                 uint8_t d = s_buf[2];
++                 static uint8_t last_1a = 0xFF;
++                 if (d != last_1a) {
++                   last_1a = d;
++                   id(f_st).publish_state(d & 0x01);
++                   id(h_st).publish_state(d & 0x02);
++                   id(b_st).publish_state(d & 0x04);
++                 }
+               }
+               s_idx = 0;
+             } else if (s_idx >= 4) s_idx = 0;
+@@ -87,6 +104,9 @@ wifi:
+ ota:
+   platform: esphome
+ 
++# API native : permet esphome logs --device <IP> pour récupérer les logs à distance (sans copier/coller)
++api:
++
+ globals:
+   - id: eedomus_enabled
+     type: bool
+@@ -100,6 +120,12 @@ globals:
+   - id: last_temp_push_time_ms
+     type: uint32_t
+     restore_value: false
++  - id: last_consigne_pushed
++    type: float
++    restore_value: false
++  - id: last_consigne_push_time_ms
++    type: uint32_t
++    restore_value: false
+ 
+ http_request:
+   useragent: "Mozilla/5.0"
+@@ -181,32 +207,49 @@ script:
+                   char url[256];
+                   sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+                   return url;
++  - id: push_consigne_eedomus
++    mode: single
++    parameters:
++      p_val: float
++    then:
++      - lambda: |-
++          if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
++          float cur = p_val;
++          uint32_t now = millis();
++          float last_val = id(last_consigne_pushed);
++          uint32_t last = id(last_consigne_push_time_ms);
++          if (last == 0) last = 1;
++          if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
++            id(last_consigne_pushed) = cur;
++            id(last_consigne_push_time_ms) = now;
++            id(push_temp_eedomus).execute(${periph_consigne_temp}, cur);
++          }
+ 
+ switch:
+   - platform: template
+     name: "Filtration"
+     id: sw_f
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 0 } ] }
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: 0 } ] }
+   - platform: template
+     name: "Chauffage"
+     id: sw_h
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 0 } ] }
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: 0 } ] }
+   - platform: template
+     name: "UVC"
+     id: sw_uvc
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 0 } ] }
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: 0 } ] }
+   - platform: template
+     name: "Verrouillage clavier"
+     id: lock
+     optimistic: true
+-    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 100 } ] }
+-    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 0 } ] }
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: 0 } ] }
+ 
+ select:
+   - platform: template
+@@ -221,7 +264,27 @@ select:
+             if (x == "Niveau1") val = 1;
+             else if (x == "Niveau2") val = 2;
+             else if (x == "Niveau3") val = 3;
+-            id(push_eedomus).execute(3527371, val);
++            id(push_eedomus).execute(${periph_bulles}, val);
++
++number:
++  - platform: template
++    name: "Température consigne"
++    id: consigne_setpoint
++    min_value: 20
++    max_value: 40
++    step: 0.5
++    unit_of_measurement: "°C"
++    set_action:
++      - lambda: |-
++          uint8_t frame[4];
++          frame[0] = 0xA5;
++          frame[1] = 0x04;
++          frame[2] = (uint8_t)(x * 2.0f);
++          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
++          id(uart_spa).write_array(frame, 4);
++    on_value:
++      then:
++        - lambda: id(push_consigne_eedomus).execute(x);
+ 
+ sensor:
+   - platform: template
+@@ -242,7 +305,7 @@ sensor:
+             if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+               id(last_temp_pushed) = cur;
+               id(last_temp_push_time_ms) = now;
+-              id(push_temp_eedomus).execute(3527361, cur);
++              id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
+             }
+ 
+ binary_sensor:
+
+commit 4c2adcb125ff1cf87a5091ab90ade3538988c780
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Tue Feb 17 16:48:58 2026 +0100
+
+    Noms UI, probe eedomus, throttle temp, outil test protocole, doc
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+index e3e3272..2efdab0 100644
+--- a/esphome/mspa-controller.yaml
++++ b/esphome/mspa-controller.yaml
+@@ -1,8 +1,25 @@
+ # Contrôleur MSPA – Pont UART + eedomus
+ # Référence : docs/protocol_mspa.md, docs/logic_spec.md
++# Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
++
++substitutions:
++  eedomus_enabled: !secret eedomus_enabled
++  eedomus_host: !secret eedomus_host
++  eedomus_api_user: !secret eedomus_api_user
++  eedomus_api_secret: !secret eedomus_api_secret
+ 
+ esphome:
+   name: mspa-final-controller
++  on_boot:
++    - lambda: |-
++        id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
++        id(eedomus_reachable) = false;
++    - delay: 3s
++    - if:
++        condition:
++          lambda: 'return id(eedomus_enabled);'
++        then:
++          - script.execute: probe_eedomus
+   on_loop:
+     then:
+       - lambda: |-
+@@ -63,22 +80,46 @@ esp32:
+ 
+ wifi:
+   networks:
+-    - ssid: "l'escalade-secours"
+-      password: "Qt51HhAz"
+-  ap: { ssid: "MSPA-RECOVERY" }
++    - ssid: !secret wifi_ssid
++      password: !secret wifi_password
++  ap: { ssid: !secret ap_ssid }
+ 
+ ota:
+   platform: esphome
+ 
++globals:
++  - id: eedomus_enabled
++    type: bool
++    restore_value: false
++  - id: eedomus_reachable
++    type: bool
++    restore_value: false
++  - id: last_temp_pushed
++    type: float
++    restore_value: false
++  - id: last_temp_push_time_ms
++    type: uint32_t
++    restore_value: false
++
+ http_request:
+   useragent: "Mozilla/5.0"
+-  timeout: 5s
++  timeout: 2s
+   verify_ssl: false
+ 
+ logger:
+   level: INFO
+   baud_rate: 0
+ 
++# Test eedomus toutes les 30s (évite envois si box injoignable)
++interval:
++  - interval: 30s
++    then:
++      - if:
++          condition:
++            lambda: 'return id(eedomus_enabled);'
++          then:
++            - script.execute: probe_eedomus
++
+ web_server:
+   port: 80
+ 
+@@ -93,17 +134,37 @@ uart:
+     baud_rate: 9600
+ 
+ script:
++  # Test reachabilité eedomus (GET léger toutes les 30s)
++  - id: probe_eedomus
++    mode: single
++    then:
++      - http_request.get:
++          url: !lambda |-
++            static char url[64];
++            sprintf(url, "http://%s/api/", "${eedomus_host}");
++            return url;
++          on_response:
++            then:
++              - lambda: 'id(eedomus_reachable) = true;'
++          on_error:
++            then:
++              - lambda: 'id(eedomus_reachable) = false;'
++
+   - id: push_eedomus
+     mode: queued
+     parameters:
+       p_id: int
+       p_val: int
+     then:
+-      - http_request.get:
+-          url: !lambda |-
+-            char url[256];
+-            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
+-            return url;
++      - if:
++          condition:
++            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
++          then:
++            - http_request.get:
++                url: !lambda |-
++                  char url[256];
++                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
++                  return url;
+ 
+   - id: push_temp_eedomus
+     mode: single
+@@ -111,33 +172,37 @@ script:
+       p_id: int
+       p_val: float
+     then:
+-      - http_request.get:
+-          url: !lambda |-
+-            char url[256];
+-            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+-            return url;
++      - if:
++          condition:
++            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
++          then:
++            - http_request.get:
++                url: !lambda |-
++                  char url[256];
++                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
++                  return url;
+ 
+ switch:
+   - platform: template
+-    name: "sw_f"
++    name: "Filtration"
+     id: sw_f
+     optimistic: true
+     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 100 } ] }
+     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 0 } ] }
+   - platform: template
+-    name: "sw_h"
++    name: "Chauffage"
+     id: sw_h
+     optimistic: true
+     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 100 } ] }
+     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 0 } ] }
+   - platform: template
+-    name: "sw_uvc"
++    name: "UVC"
+     id: sw_uvc
+     optimistic: true
+     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 100 } ] }
+     on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 0 } ] }
+   - platform: template
+-    name: "lock"
++    name: "Verrouillage clavier"
+     id: lock
+     optimistic: true
+     on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 100 } ] }
+@@ -145,7 +210,7 @@ switch:
+ 
+ select:
+   - platform: template
+-    name: "sel_b"
++    name: "Mode bulles"
+     id: sel_b
+     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+     optimistic: true
+@@ -160,21 +225,33 @@ select:
+ 
+ sensor:
+   - platform: template
+-    name: "temp"
++    name: "Température eau"
+     id: cur_temp
+     unit_of_measurement: "°C"
+     update_interval: never
+     on_value:
+       then:
+-        - script.execute: { id: push_temp_eedomus, p_id: 3527361, p_val: !lambda "return x;" }
++        # Throttle : max 1 envoi / 60s ou si variation >= 0.5°C (évite saturation file)
++        - lambda: |-
++            if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
++            float cur = x;
++            uint32_t now = millis();
++            uint32_t last = id(last_temp_push_time_ms);
++            float last_val = id(last_temp_pushed);
++            if (last == 0) { last = 1; }
++            if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
++              id(last_temp_pushed) = cur;
++              id(last_temp_push_time_ms) = now;
++              id(push_temp_eedomus).execute(3527361, cur);
++            }
+ 
+ binary_sensor:
+   - platform: template
+-    name: "stat_f"
++    name: "État réel filtration"
+     id: f_st
+   - platform: template
+-    name: "stat_h"
++    name: "État réel chauffage"
+     id: h_st
+   - platform: template
+-    name: "stat_b"
++    name: "État réel bulles"
+     id: b_st
+
+commit 38bf9886a2fff6d0889f09a50a07458aba8d4db0
+Author: dairy401 <github.dairy401@passinbox.com>
+Date:   Tue Feb 17 14:01:59 2026 +0100
+
+    Initial: projet MSPA - controleur, sniffer, doc et guide GitHub
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/esphome/mspa-controller.yaml b/esphome/mspa-controller.yaml
+new file mode 100644
+index 0000000..e3e3272
+--- /dev/null
++++ b/esphome/mspa-controller.yaml
+@@ -0,0 +1,180 @@
++# Contrôleur MSPA – Pont UART + eedomus
++# Référence : docs/protocol_mspa.md, docs/logic_spec.md
++
++esphome:
++  name: mspa-final-controller
++  on_loop:
++    then:
++      - lambda: |-
++          // --- LOGIQUE UART (Clavier & Spa) ---
++          static uint8_t c_buf[4], c_idx = 0;
++          static uint8_t last_c_f = 0, last_c_h = 0, last_c_b = 0, last_c_uvc = 0;
++          while (id(uart_clavier).available()) {
++            uint8_t c; id(uart_clavier).read_byte(&c);
++            c_buf[c_idx++] = c;
++            if (c_idx == 4) {
++              if (c_buf[0] == 0xA5) {
++                uint8_t rid = c_buf[1]; uint8_t rd = c_buf[2];
++                if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
++                else if (rid == 0x02 && rd != last_c_f) { id(sw_f).publish_state(rd == 0x01); last_c_f = rd; }
++                else if (rid == 0x19 && rd != last_c_uvc) { id(sw_uvc).publish_state(rd == 0x01); last_c_uvc = rd; }
++                else if (rid == 0x03 && rd != last_c_b) {
++                  if (rd == 0) id(sel_b).publish_state("Arret");
++                  else if (rd == 1) id(sel_b).publish_state("Niveau1");
++                  else if (rd == 2) id(sel_b).publish_state("Niveau2");
++                  else if (rd == 3) id(sel_b).publish_state("Niveau3");
++                  last_c_b = rd;
++                }
++                if (rid == 0x01)      c_buf[2] = id(sw_h).state ? 0x01 : 0x00;
++                else if (rid == 0x02) c_buf[2] = (id(sw_f).state || id(sw_h).state || id(sw_uvc).state) ? 0x01 : 0x00;
++                else if (rid == 0x19) c_buf[2] = id(sw_uvc).state ? 0x01 : 0x00;
++                else if (rid == 0x03) {
++                   auto opt = id(sel_b).current_option();
++                   if (opt == "Niveau1") c_buf[2] = 0x01;
++                   else if (opt == "Niveau2") c_buf[2] = 0x02;
++                   else if (opt == "Niveau3") c_buf[2] = 0x03;
++                   else c_buf[2] = 0x00;
++                }
++                c_buf[3] = c_buf[0] + c_buf[1] + c_buf[2];
++                if (!id(lock).state) id(uart_spa).write_array(c_buf, 4);
++              }
++              c_idx = 0;
++            }
++          }
++          static uint8_t s_buf[4], s_idx = 0;
++          while (id(uart_spa).available()) {
++            uint8_t sc; id(uart_spa).read_byte(&sc);
++            id(uart_clavier).write_byte(sc);
++            s_buf[s_idx++] = sc;
++            if (s_idx == 4 && s_buf[0] == 0xA5) {
++              if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
++              if (s_buf[1] == 0x1A) {
++                 id(f_st).publish_state(s_buf[2] & 0x01);
++                 id(h_st).publish_state(s_buf[2] & 0x02);
++                 id(b_st).publish_state(s_buf[2] & 0x04);
++              }
++              s_idx = 0;
++            } else if (s_idx >= 4) s_idx = 0;
++          }
++
++esp32:
++  board: esp32dev
++  framework: { type: arduino }
++
++wifi:
++  networks:
++    - ssid: "l'escalade-secours"
++      password: "Qt51HhAz"
++  ap: { ssid: "MSPA-RECOVERY" }
++
++ota:
++  platform: esphome
++
++http_request:
++  useragent: "Mozilla/5.0"
++  timeout: 5s
++  verify_ssl: false
++
++logger:
++  level: INFO
++  baud_rate: 0
++
++web_server:
++  port: 80
++
++uart:
++  - id: uart_spa
++    tx_pin: 17
++    rx_pin: 16
++    baud_rate: 9600
++  - id: uart_clavier
++    tx_pin: 13
++    rx_pin: 14
++    baud_rate: 9600
++
++script:
++  - id: push_eedomus
++    mode: queued
++    parameters:
++      p_id: int
++      p_val: int
++    then:
++      - http_request.get:
++          url: !lambda |-
++            char url[256];
++            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
++            return url;
++
++  - id: push_temp_eedomus
++    mode: single
++    parameters:
++      p_id: int
++      p_val: float
++    then:
++      - http_request.get:
++          url: !lambda |-
++            char url[256];
++            sprintf(url, "http://192.168.1.242/api/set?api_user=X83Euu&api_secret=cl6xma3bQfZMzIlW&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
++            return url;
++
++switch:
++  - platform: template
++    name: "sw_f"
++    id: sw_f
++    optimistic: true
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527369, p_val: 0 } ] }
++  - platform: template
++    name: "sw_h"
++    id: sw_h
++    optimistic: true
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527370, p_val: 0 } ] }
++  - platform: template
++    name: "sw_uvc"
++    id: sw_uvc
++    optimistic: true
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527372, p_val: 0 } ] }
++  - platform: template
++    name: "lock"
++    id: lock
++    optimistic: true
++    on_turn_on:  { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 100 } ] }
++    on_turn_off: { then: [ script.execute: { id: push_eedomus, p_id: 3527373, p_val: 0 } ] }
++
++select:
++  - platform: template
++    name: "sel_b"
++    id: sel_b
++    options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
++    optimistic: true
++    set_action:
++      then:
++        - lambda: |-
++            int val = 0;
++            if (x == "Niveau1") val = 1;
++            else if (x == "Niveau2") val = 2;
++            else if (x == "Niveau3") val = 3;
++            id(push_eedomus).execute(3527371, val);
++
++sensor:
++  - platform: template
++    name: "temp"
++    id: cur_temp
++    unit_of_measurement: "°C"
++    update_interval: never
++    on_value:
++      then:
++        - script.execute: { id: push_temp_eedomus, p_id: 3527361, p_val: !lambda "return x;" }
++
++binary_sensor:
++  - platform: template
++    name: "stat_f"
++    id: f_st
++  - platform: template
++    name: "stat_h"
++    id: h_st
++  - platform: template
++    name: "stat_b"
++    id: b_st

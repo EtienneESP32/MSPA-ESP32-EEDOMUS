@@ -1,0 +1,172 @@
+INFO ESPHome 2026.1.4
+INFO Reading configuration esphome\mspa-controller.yaml...
+INFO Starting log output from 192.168.1.226 using esphome API
+INFO Successfully resolved mspa-final-controller @ 192.168.1.226 in 0.000s
+INFO Successfully connected to mspa-final-controller @ 192.168.1.226 in 0.009s
+INFO Successful handshake with mspa-final-controller @ 192.168.1.226 in 0.017s
+[04:08:58.942][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:08:58.951][I][app:206]: ESPHome version 2026.1.4 compiled on 2026-03-05 04:07:19 +0100
+[04:08:58.951][I][app:213]: ESP32 Chip: ESP32 r3.1, 2 core(s)
+[04:08:58.999][W][app:222]: Set minimum_chip_revision: "3.1" to reduce binary size
+[04:08:59.153][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:08:59.753][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:08:59.944][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:00.167][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:00.984][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:01.165][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:01.982][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:02.205][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:02.733][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:02.993][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:03.201][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:04.044][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:04.230][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:04.719][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[04:09:05.039][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:05.244][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:05.751][I][mspa_tx:084]: [CLAV->SPA] A5 19 00 BE
+[04:09:05.812][I][mspa_tx:084]: [CLAV->SPA] A5 15 00 BA
+[04:09:06.057][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:06.234][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:07.075][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:07.228][I][mspa_tx:084]: [CLAV->SPA] A5 02 00 A7
+[04:09:07.244][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:08.088][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:08.288][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:08.706][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:09:09.083][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:09.320][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:10.090][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:10.312][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:11.117][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:11.319][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:11.709][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:12.136][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:12.342][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:12.976][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:13.141][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:13.359][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:14.158][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:14.362][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:14.704][I][mspa_tx:084]: [CLAV->SPA] A5 19 00 BE
+[04:09:14.754][I][mspa_tx:084]: [CLAV->SPA] A5 15 00 BA
+[04:09:15.179][I][mspa_rx:113]: [SPA->CLAV] A5 1A 00 BF
+[04:09:15.385][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:16.247][I][mspa_tx:084]: [CLAV->SPA] A5 02 00 A7
+[04:09:16.314][I][mspa_rx:113]: [SPA->CLAV] A5 1A 01 C0
+[04:09:16.422][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:17.209][I][mspa_rx:113]: [SPA->CLAV] A5 1A 01 C0
+[04:09:17.413][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:17.683][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:09:17.767][I][mspa_tx:084]: [CLAV->SPA] A5 0B 00 B0
+[04:09:17.830][I][mspa_rx:113]: [SPA->CLAV] A5 0B 29 D9
+[04:09:18.081][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:18.237][I][mspa_rx:113]: [SPA->CLAV] A5 1A 05 C4
+[04:09:18.423][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:19.219][I][mspa_rx:113]: [SPA->CLAV] A5 1A 05 C4
+[04:09:19.433][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:20.258][I][mspa_rx:113]: [SPA->CLAV] A5 1A 06 C5
+[04:09:20.473][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:20.691][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:21.272][I][mspa_rx:113]: [SPA->CLAV] A5 1A 06 C5
+[04:09:21.469][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:22.266][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:22.498][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:23.213][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:23.296][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:23.504][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:23.667][I][mspa_tx:084]: [CLAV->SPA] A5 19 00 BE
+[04:09:23.754][I][mspa_tx:084]: [CLAV->SPA] A5 15 00 BA
+[04:09:24.312][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:24.522][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:25.152][I][mspa_tx:084]: [CLAV->SPA] A5 02 00 A7
+[04:09:25.326][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:25.537][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:26.166][I][safe_mode:066]: Boot seems successful; resetting boot loop counter
+[04:09:26.349][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:26.552][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:26.642][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:09:27.360][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:27.542][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:28.298][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:28.401][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:28.570][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:29.391][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:29.601][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:29.646][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:30.391][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:30.619][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:31.417][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:31.636][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:32.414][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:32.652][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:32.702][I][mspa_tx:084]: [CLAV->SPA] A5 19 00 BE
+[04:09:32.703][I][mspa_tx:084]: [CLAV->SPA] A5 15 00 BA
+[04:09:33.407][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:33.483][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:33.654][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:34.131][I][mspa_tx:084]: [CLAV->SPA] A5 02 00 A7
+[04:09:34.459][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:34.669][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:35.455][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:35.630][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:09:35.694][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:36.482][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:36.691][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:37.488][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:37.694][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:38.512][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:38.582][W][web_server:180][httpd]: Deprecated URL format: /switch/filtration - use entity name '/switch/Filtration' instead. Object ID URLs will be removed in 2026.7.0.
+[04:09:38.627][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:38.733][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:39.554][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:39.736][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:40.574][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:40.777][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:41.599][I][mspa_rx:113]: [SPA->CLAV] A5 1A 08 C7
+[04:09:41.698][I][mspa_tx:084]: [CLAV->SPA] A5 19 00 BE
+[04:09:41.698][I][mspa_tx:084]: [CLAV->SPA] A5 15 00 BA
+[04:09:41.801][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:42.619][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:42.821][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:43.113][I][mspa_tx:084]: [CLAV->SPA] A5 02 00 A7
+[04:09:43.576][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:43.775][I][mspa_rx:113]: [SPA->CLAV] A5 08 03 B0
+[04:09:44.619][I][mspa_tx:084]: [CLAV->SPA] A5 03 00 A8
+[04:09:45.333][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:45.334][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:45.400][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[04:09:45.485][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[04:09:45.627][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:45.834][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:45.916][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[04:09:46.644][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:46.836][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[04:09:47.547][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[04:09:47.687][I][mspa_tx:084]: [CLAV->SPA] A5 01 00 A6
+[04:09:47.687][I][mspa_rx:113]: [SPA->CLAV] A5 1A 09 C8
+[04:09:47.855][I][mspa_rx:113]: [SPA->CLAV] A5 08 00 AD
+[23:42:48] INFO ESPHome 2026.1.4
+[23:42:48] INFO Reading configuration esphome\mspa-controller-s3.yaml...
+[23:42:59] INFO Starting log output from 192.168.1.226 using esphome API
+[23:42:59] INFO Successfully resolved mspa-controller-s3 @ 192.168.1.226 in 0.000s
+[23:42:59] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.014s
+[23:42:59] WARNING Can't connect to ESPHome API for mspa-controller-s3 @ 192.168.1.226: [WinError 64] Le nom réseau spécifié n’est plus disponible (ReadFailedAPIError)
+[23:42:59] INFO Trying to connect to mspa-controller-s3 @ 192.168.1.226 in the background
+[23:43:01] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.015s
+[23:43:05] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.016s
+[23:43:11] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.017s
+[23:43:21] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.008s
+[23:43:40] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.017s
+[23:44:09] INFO ESPHome 2026.1.4
+[23:44:09] INFO Reading configuration esphome\mspa-controller-s3.yaml...
+[23:44:10] INFO Starting log output from 192.168.1.226 using esphome API
+[23:44:10] INFO Successfully resolved mspa-controller-s3 @ 192.168.1.226 in 0.000s
+[23:44:10] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.013s
+[23:44:10] WARNING Can't connect to ESPHome API for mspa-controller-s3 @ 192.168.1.226: [WinError 64] Le nom réseau spécifié n’est plus disponible (ReadFailedAPIError)
+[23:44:10] INFO Trying to connect to mspa-controller-s3 @ 192.168.1.226 in the background
+[23:44:12] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.018s
+[23:44:15] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.082s
+[23:44:21] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.017s
+[23:44:31] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.017s
+[23:44:50] INFO Successfully connected to mspa-controller-s3 @ 192.168.1.226 in 0.039s

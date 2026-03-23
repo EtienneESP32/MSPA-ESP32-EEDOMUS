@@ -1,0 +1,48 @@
+﻿[18:32:08.525][I][app:206]: ESPHome version 2026.1.4 compiled on 2026-03-21 17:39:03 +0100
+[18:32:08.560][I][app:213]: ESP32 Chip: ESP32 r3.1, 2 core(s)
+[18:32:08.560][W][app:222]: Set minimum_chip_revision: "3.1" to reduce binary size
+[18:32:08.787][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:09.198][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:09.298][I][mspa:196]: [CLAV->SPA] A5 02 01 A8  Filtration ON
+[18:32:09.397][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:09.818][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:10.234][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:10.419][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:10.790][I][mspa:196]: [CLAV->SPA] A5 03 00 A8  Bulles lvl=0
+[18:32:10.810][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:11.243][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:11.434][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:11.925][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:12.255][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:12.320][I][mspa:196]: [CLAV->SPA] A5 0D 00 B2  Poll
+[18:32:12.455][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:12.864][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:13.265][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:13.469][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:13.788][I][mspa:196]: [CLAV->SPA] A5 01 00 A6  Chauffage OFF
+[18:32:13.870][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:14.267][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:14.475][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:14.877][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:15.277][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:15.490][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:15.907][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:16.297][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:16.507][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:16.984][I][mspa:196]: [CLAV->SPA] A5 19 00 BE  UVC OFF
+[18:32:17.008][I][mspa:196]: [CLAV->SPA] A5 15 00 BA  Sanitize
+[18:32:17.054][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:17.342][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:17.547][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:17.935][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:18.328][I][mspa:196]: [CLAV->SPA] A5 02 01 A8  Filtration ON
+[18:32:18.367][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:18.540][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:18.948][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:19.342][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:19.555][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:19.804][I][mspa:196]: [CLAV->SPA] A5 03 00 A8  Bulles lvl=0
+[18:32:19.958][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C
+[18:32:20.368][I][mspa:113]: [SPA->CLAV] A5 1A 08 C7  Flags 0x08 (Pump=0 Heat=0 Pret=1)
+[18:32:20.560][I][mspa:113]: [SPA->CLAV] A5 08 03 B0  0x08(SPA)
+[18:32:20.969][I][mspa:113]: [SPA->CLAV] A5 06 15 C0  Temp 10.5C

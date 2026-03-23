@@ -1,0 +1,479 @@
+﻿# Contr├┤leur MSPA ÔÇô Pont UART + eedomus
+# R├®f├®rence : docs/protocol_mspa.md, docs/logic_spec.md
+# Secrets : copier esphome/secrets.yaml.example en secrets.yaml (dans esphome/)
+
+substitutions:
+  mspa_version: "1.0.0"
+  eedomus_enabled: !secret eedomus_enabled
+  eedomus_host: !secret eedomus_host
+  eedomus_api_user: !secret eedomus_api_user
+  eedomus_api_secret: !secret eedomus_api_secret
+  periph_filtration: !secret eedomus_periph_filtration
+  periph_chauffage: !secret eedomus_periph_chauffage
+  periph_bulles: !secret eedomus_periph_bulles
+  periph_uvc: !secret eedomus_periph_uvc
+  periph_verrouillage: !secret eedomus_periph_verrouillage
+  periph_consigne_temp: !secret eedomus_periph_consigne_temp
+  periph_temp_eau: !secret eedomus_periph_temp_eau
+
+esphome:
+  name: mspa-final-controller
+  friendly_name: "Contr├┤leur MSPA ${mspa_version}"
+  on_boot:
+    - lambda: |-
+        id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+        id(eedomus_reachable) = false;
+        id(consigne_setpoint).publish_state(40.0f);
+    # 90s pour laisser web_server/API stabiliser ÔåÆ UI responsive, moins d'erreurs sockets
+    - delay: 90s
+    - if:
+        condition:
+          lambda: 'return id(eedomus_enabled);'
+        then:
+          - script.execute: probe_eedomus
+  on_loop:
+    then:
+      - lambda: |-
+          if (id(pending_uart_id) != 0) {
+            uint8_t fid = (uint8_t) id(pending_uart_id);
+            uint8_t fv = (uint8_t) id(pending_uart_val);
+            uint8_t f[4] = { 0xA5, fid, fv, (uint8_t)((0xA5 + fid + fv) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+            id(pending_uart_id) = 0;
+          }
+          static uint8_t c_buf[4], c_idx = 0;
+          static uint8_t last_c_f = 0, last_c_h = 0, last_c_b = 0, last_c_uvc = 0;
+          const int max_trames = 2;
+          int n_clav = 0;
+          while (id(uart_clavier).available() && n_clav < max_trames * 4) {
+            uint8_t c; id(uart_clavier).read_byte(&c);
+            c_buf[c_idx++] = c;
+            if (c_idx == 4) {
+              n_clav += 4;
+              if (c_buf[0] == 0xA5) {
+                uint8_t rid = c_buf[1]; uint8_t rd = c_buf[2];
+                if (rid == 0x01 && rd != last_c_h) { id(sw_h).publish_state(rd == 0x01); last_c_h = rd; }
+                else if (rid == 0x02 && rd != last_c_f) { id(sw_f).publish_state(rd == 0x01); last_c_f = rd; }
+                else if (rid == 0x19 && rd != last_c_uvc) { id(sw_uvc).publish_state(rd == 0x01); last_c_uvc = rd; }
+                else if (rid == 0x04) {
+                  float cons = rd / 2.0f;
+                  id(consigne_setpoint).publish_state(cons);
+                  id(push_consigne_eedomus).execute(cons);
+                }
+                else if (rid == 0x03 && rd != last_c_b) {
+                  if (rd == 0) id(sel_b).publish_state("Arret");
+                  else if (rd == 1) id(sel_b).publish_state("Niveau1");
+                  else if (rd == 2) id(sel_b).publish_state("Niveau2");
+                  else if (rd == 3) id(sel_b).publish_state("Niveau3");
+                  last_c_b = rd;
+                }
+                if (rid == 0x01)      c_buf[2] = id(sw_h).state ? 0x01 : 0x00;
+                else if (rid == 0x02) c_buf[2] = (id(sw_f).state || id(sw_h).state || id(sw_uvc).state) ? 0x01 : 0x00;
+                else if (rid == 0x19) c_buf[2] = id(sw_uvc).state ? 0x01 : 0x00;
+                else if (rid == 0x03) {
+                   auto opt = id(sel_b).current_option();
+                   if (opt.size() > 0) {
+                     if (opt == "Niveau1") c_buf[2] = 0x01;
+                     else if (opt == "Niveau2") c_buf[2] = 0x02;
+                     else if (opt == "Niveau3") c_buf[2] = 0x03;
+                     else c_buf[2] = 0x00;
+                   }
+                }
+                else if (rid == 0x04) {
+                  if (id(consigne_setpoint).has_state())
+                    c_buf[2] = (uint8_t)(id(consigne_setpoint).state * 2.0f);
+                }
+                c_buf[3] = c_buf[0] + c_buf[1] + c_buf[2];
+                if (!id(lock).state) id(uart_spa).write_array(c_buf, 4);
+              }
+              c_idx = 0;
+            }
+          }
+          yield();
+          static uint8_t s_buf[4], s_idx = 0;
+          int n_spa = 0;
+          while (id(uart_spa).available() && n_spa < max_trames * 4) {
+            uint8_t sc; id(uart_spa).read_byte(&sc);
+            id(uart_clavier).write_byte(sc);
+            s_buf[s_idx++] = sc;
+            n_spa++;
+            if (s_idx == 4 && s_buf[0] == 0xA5) {
+              uint8_t ck = (s_buf[0] + s_buf[1] + s_buf[2]) & 0xFF;
+              if (ck == s_buf[3]) {
+                if (s_buf[1] == 0x06) id(cur_temp).publish_state(s_buf[2] / 2.0);
+                if (s_buf[1] == 0x1A) {
+                   uint8_t d = s_buf[2];
+                   // Le SPA envoie 0x1A en alternance : 0x03 (pompe+chauffage) et 0x04 (bulles).
+                   // On fusionne au lieu d'├®craser : 0x00 = tout off, 0x01/0x02/0x03 = ph, 0x04 = bulles.
+                   static uint8_t last_1a_ph = 0, last_1a_b = 0, last_combined = 0xFF;
+                   if (d == 0x00) { last_1a_ph = 0; last_1a_b = 0; }
+                   else if (d == 0x01 || d == 0x02 || d == 0x03) last_1a_ph = d;
+                   else if (d == 0x04) last_1a_b = d;
+                   uint8_t combined = (last_1a_ph & 0x03) | (last_1a_b & 0x04);
+                   if (combined != last_combined) {
+                     last_combined = combined;
+                     id(f_st).publish_state(combined & 0x01);
+                     id(h_st).publish_state(combined & 0x02);
+                     id(b_st).publish_state(combined & 0x04);
+                   }
+                }
+              }
+              s_idx = 0;
+            } else if (s_idx >= 4) s_idx = 0;
+          }
+          yield();
+
+esp32:
+  board: esp32dev
+  framework: { type: arduino }
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      manual_ip:
+        static_ip: !secret static_ip
+        gateway: !secret gateway
+        subnet: !secret subnet
+  ap:
+    ssid: !secret ap_ssid
+    password: !secret ap_password
+
+captive_portal:
+
+ota:
+  platform: esphome
+  version: 2
+
+safe_mode:
+  reboot_timeout: 10min
+
+# API native ESPHome (port 3232) : logs, OTA. Eedomus utilise le serveur web (port 80), pas l'API.
+api:
+  port: 3232
+  reboot_timeout: 0s
+  max_connections: 4
+  listen_backlog: 2
+
+globals:
+  - id: eedomus_enabled
+    type: bool
+    restore_value: false
+  - id: eedomus_reachable
+    type: bool
+    restore_value: false
+  - id: last_temp_pushed
+    type: float
+    restore_value: false
+  - id: last_temp_push_time_ms
+    type: uint32_t
+    restore_value: false
+  - id: last_consigne_pushed
+    type: float
+    restore_value: false
+  - id: last_consigne_push_time_ms
+    type: uint32_t
+    restore_value: false
+  - id: pending_uart_id
+    type: int
+    restore_value: false
+  - id: pending_uart_val
+    type: int
+    restore_value: false
+  - id: eedomus_warn_logged
+    type: bool
+    restore_value: false
+
+http_request:
+  useragent: "Mozilla/5.0"
+  timeout: 1s
+  verify_ssl: false
+
+logger:
+  level: INFO
+  baud_rate: 0
+
+# Probe eedomus : 120s si joignable (dev avec UI), 5 min si injoignable ÔåÆ UI responsive
+interval:
+  - interval: 120s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+          then:
+            - script.execute: probe_eedomus
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && !id(eedomus_reachable);'
+          then:
+            - script.execute: probe_eedomus
+
+# Dev : garder pour l'UI. Prod : commenter pour lib├®rer RAM/sockets et faciliter l'OTA.
+# version: 3 pour respecter sorting_weight (ordre d'affichage des entit├®s)
+web_server:
+  port: 80
+  version: 3
+
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+  - id: uart_clavier
+    tx_pin: 13
+    rx_pin: 14
+    baud_rate: 9600
+
+script:
+  # Test reachabilit├® eedomus (GET l├®ger toutes les 30s)
+  - id: probe_eedomus
+    mode: single
+    then:
+      - http_request.get:
+          url: !lambda |-
+            static char url[64];
+            sprintf(url, "http://%s/api/", "${eedomus_host}");
+            return url;
+          on_response:
+            then:
+              - lambda: 'id(eedomus_reachable) = true;'
+          on_error:
+            then:
+              - lambda: 'id(eedomus_reachable) = false;'
+              - if:
+                  condition:
+                    lambda: 'return !id(eedomus_warn_logged);'
+                  then:
+                    - lambda: 'id(eedomus_warn_logged) = true;'
+                    - logger.log:
+                        level: WARN
+                        format: "eedomus injoignable ou URL invalide. Si logs montrent IP_OU_HOST_EEDOMUS, remplacer eedomus_host (et api_user/secret) dans secrets.yaml."
+
+  - id: push_eedomus
+    mode: queued
+    parameters:
+      p_id: int
+      p_val: int
+    then:
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
+                  return url;
+
+  - id: push_temp_eedomus
+    mode: single
+    parameters:
+      p_id: int
+      p_val: float
+    then:
+      - if:
+          condition:
+            lambda: 'return id(eedomus_enabled) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+                  return url;
+  - id: push_consigne_eedomus
+    mode: single
+    parameters:
+      p_val: float
+    then:
+      - lambda: |-
+          if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+          float cur = p_val;
+          uint32_t now = millis();
+          float last_val = id(last_consigne_pushed);
+          uint32_t last = id(last_consigne_push_time_ms);
+          if (last == 0) last = 1;
+          if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+            id(last_consigne_pushed) = cur;
+            id(last_consigne_push_time_ms) = now;
+            id(push_temp_eedomus).execute(${periph_consigne_temp}, cur);
+          }
+
+switch:
+  - platform: template
+    name: "Filtration"
+    id: sw_f
+    web_server:
+      sorting_weight: 1
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_filtration}
+            p_val: 100
+    on_turn_off:
+      then:
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x02, 0x00, (uint8_t)((0xA5 + 0x02 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_filtration}
+            p_val: 0
+  - platform: template
+    name: "Chauffage"
+    id: sw_h
+    web_server:
+      sorting_weight: 2
+    optimistic: true
+    # Protocole : "Chauffage (01) force 02 ├á 01" (doc) ÔåÆ la pompe est pilot├®e par 0x02 ; envoyer 0x02 0x01 puis 0x01 0x01 pour entendre la pompe ~3 s puis arr├¬t si pas d'eau
+    on_turn_on:
+      then:
+        - lambda: |-
+            uint8_t f02[4] = { 0xA5, 0x02, 0x01, (uint8_t)((0xA5 + 0x02 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f02, 4);
+            uint8_t f01[4] = { 0xA5, 0x01, 0x01, (uint8_t)((0xA5 + 0x01 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f01, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_chauffage}
+            p_val: 100
+    on_turn_off:
+      then:
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x01, 0x00, (uint8_t)((0xA5 + 0x01 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_chauffage}
+            p_val: 0
+  - platform: template
+    name: "UVC"
+    id: sw_uvc
+    web_server:
+      sorting_weight: 3
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x19, 0x01, (uint8_t)((0xA5 + 0x19 + 0x01) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_uvc}
+            p_val: 100
+    on_turn_off:
+      then:
+        - lambda: |-
+            uint8_t f[4] = { 0xA5, 0x19, 0x00, (uint8_t)((0xA5 + 0x19 + 0x00) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_uvc}
+            p_val: 0
+  - platform: template
+    name: "Verrouillage clavier"
+    id: lock
+    web_server:
+      sorting_weight: 4
+    optimistic: true
+    on_turn_on:
+      then:
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_verrouillage}
+            p_val: 100
+    on_turn_off:
+      then:
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_verrouillage}
+            p_val: 0
+
+select:
+  - platform: template
+    name: "Mode bulles"
+    id: sel_b
+    web_server:
+      sorting_weight: 5
+    options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+    optimistic: true
+    set_action:
+      then:
+        - lambda: |-
+            int val = 0;
+            if (x == "Niveau1") val = 1;
+            else if (x == "Niveau2") val = 2;
+            else if (x == "Niveau3") val = 3;
+            uint8_t f[4] = { 0xA5, 0x03, (uint8_t)val, (uint8_t)((0xA5 + 0x03 + val) & 0xFF) };
+            id(uart_spa).write_array(f, 4);
+            id(push_eedomus).execute(${periph_bulles}, val);
+
+sensor:
+  - platform: template
+    name: "Temperature eau"
+    id: cur_temp
+    web_server:
+      sorting_weight: 7
+    unit_of_measurement: "┬░C"
+    update_interval: never
+    on_value:
+      then:
+        # Throttle : max 1 envoi / 60s ou si variation >= 0.5┬░C (├®vite saturation file)
+        - lambda: |-
+            if (!id(eedomus_enabled) || !id(eedomus_reachable)) return;
+            float cur = x;
+            uint32_t now = millis();
+            uint32_t last = id(last_temp_push_time_ms);
+            float last_val = id(last_temp_pushed);
+            if (last == 0) { last = 1; }
+            if (fabs(cur - last_val) >= 0.5f || (now - last) >= 60000) {
+              id(last_temp_pushed) = cur;
+              id(last_temp_push_time_ms) = now;
+              id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
+            }
+
+number:
+  - platform: template
+    name: "Temperature consigne"
+    id: consigne_setpoint
+    web_server:
+      sorting_weight: 6
+    min_value: 20
+    max_value: 40
+    step: 0.5
+    unit_of_measurement: "┬░C"
+    set_action:
+      - lambda: |-
+          uint8_t frame[4];
+          frame[0] = 0xA5;
+          frame[1] = 0x04;
+          frame[2] = (uint8_t)(x * 2.0f);
+          frame[3] = (frame[0] + frame[1] + frame[2]) & 0xFF;
+          id(uart_spa).write_array(frame, 4);
+    on_value:
+      then:
+        - lambda: id(push_consigne_eedomus).execute(x);
+
+binary_sensor:
+  - platform: template
+    name: "Etat reel filtration"
+    id: f_st
+    web_server:
+      sorting_weight: 8
+  - platform: template
+    name: "Etat reel chauffage"
+    id: h_st
+    web_server:
+      sorting_weight: 9
+  - platform: template
+    name: "Etat reel bulles"
+    id: b_st
+    web_server:
+      sorting_weight: 10

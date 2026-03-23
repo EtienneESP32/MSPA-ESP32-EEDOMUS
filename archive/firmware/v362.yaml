@@ -1,0 +1,452 @@
+# Contrôleur MSPA – Version 3.6.2 (BUG-FIX)
+# Stratégie : Selective Interception, Synchronous Injection (Poll 0x0D)
+# Note : API désactivée pour stabilité sockets (Fix EMFILE 23)
+# Fixes v3.6.0 : p_step global (A2), consigne injection (A4)
+# Fix  v3.6.1 : bulles UART direct (Mode 1 asynchrone, pas Sniper)
+# Fix  v3.6.2 : is_f/is_h/is_u dérivés par timer (anti-oscillation, voir logic_spec.md §6)
+#
+# === RÈGLES D'INJECTION : NE PAS MODIFIER SANS LIRE logic_spec.md ===
+# Mode 1 (DIRECT ASYNCHRONE) : Bulles (0x03), Consigne (0x04)
+#   -> set_action : uart_spa.write_array() direct, SANS pending_uart_id
+# Mode 2 (MITM)               : Filtration (0x02)
+#   -> MITM intercept keyboard 0x02 frame dans on_loop
+# Mode 3 (SNIPER sur 0x0D)    : Chauffage (0x01), UVC (0x19)
+#   -> pending_uart_id/val + injection sur Poll 0x0D dans on_loop
+# ======================================================================
+# === RÈGLES RETOUR D'ETAT : NE PAS LIRE LES BITS BRUTS pour l'UI ===
+# Toujours utiliser les timers last_f_ms/last_h_ms/last_u_ms/last_b_ms
+# Regle: bool is_X = (last_X_ms != 0 && (now - last_X_ms < TIMEOUT))
+# Voir logic_spec.md §6 pour la justification et les timeouts.
+# ======================================================================
+
+substitutions:
+  mspa_version: "3.6.2"
+  eedomus_enabled: !secret eedomus_enabled
+  eedomus_host: !secret eedomus_host
+  eedomus_api_user: !secret eedomus_api_user
+  eedomus_api_secret: !secret eedomus_api_secret
+  static_ip: !secret static_ip
+  gateway: !secret gateway
+  subnet: !secret subnet
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+
+esphome:
+  name: mspa-controller
+  friendly_name: "MSPA v3.6.2 (Bug-Fix)"
+  on_boot:
+    priority: 800
+    then:
+      - lambda: |-
+          id(eedomus_enabled) = (strcmp("${eedomus_enabled}", "true") == 0);
+          id(eedomus_reachable) = false;
+          id(consigne_setpoint).publish_state(40.0f);
+  on_loop:
+    then:
+      - lambda: |-
+          uint32_t now = millis();
+          static uint32_t boot_time = 0;
+          if (boot_time == 0) boot_time = now;
+          bool boot_stable = (now - boot_time > 10000); 
+
+          // --- SENS 1 : Clavier -> Moteur (INTERCEPTION v3.4.10) ---
+          static uint8_t c_buf[5];
+          static int c_idx = 0;
+          int c_limit = 0;
+
+          while (id(uart_clavier).available() && c_limit++ < 16) {
+            uint8_t c; id(uart_clavier).read_byte(&c);
+            
+            if (c_idx > 0 && c == 0xA5) {
+               for(int i=0; i<c_idx; i++) id(uart_spa).write_byte(c_buf[i]);
+               c_idx = 0;
+            }
+
+            if (c_idx == 0 && (c != 0xA5 && c != 0x00)) {
+              id(uart_spa).write_byte(c);
+              continue;
+            }
+            c_buf[c_idx++] = c;
+
+            if (c_buf[0] == 0xA5 && c_idx == 4) {
+              if ((uint8_t)(c_buf[0]+c_buf[1]+c_buf[2]) == c_buf[3]) {
+                uint8_t rid = c_buf[1]; 
+                
+                // --- INJECTION SYNCHRONE (Mode Sniper sur Poll 0x0D) ---
+                if (rid == 0x0D && id(pending_uart_id) != 0) {
+                  uint8_t p_id = id(pending_uart_id);
+                  uint8_t p_val = id(pending_uart_val);
+                  
+                  // Phase A : Chauffe/UVC nécessite pompe ON
+                  if (id(p_step) == 0 && p_val == 0x01 && (p_id == 0x01 || p_id == 0x19) && !(id(raw_1A_val) & 0x01)) {
+                    id(p_step) = 1;
+                  } 
+                  else if (id(p_step) == 0) {
+                    id(p_step) = 2; // Cible directe
+                  }
+                  
+                  uint8_t inj_id = (id(p_step) == 1) ? 0x02 : p_id;
+                  uint8_t inj_val = (id(p_step) == 1) ? 0x01 : p_val;
+                  
+                  uint8_t p_buf[4] = {0xA5, inj_id, inj_val, (uint8_t)(0xA5+inj_id+inj_val)};
+                  id(uart_spa).write_array(p_buf, 4);
+                  ESP_LOGW("mspa_sniper", "INJECT SYNCHRONE (Poll) : ID 0x%02X -> %d", inj_id, inj_val);
+                  
+                  if (id(p_step) == 2 && inj_id == 0x19) { // Double UVC 19+15
+                      uint8_t p_buf2[4] = {0xA5, 0x15, inj_val, (uint8_t)(0xA5+0x15+inj_val)};
+                      id(uart_spa).write_array(p_buf2, 4);
+                  }
+                  
+                  if (id(p_step) == 1) { id(p_step) = 2; }
+                  else { id(pending_uart_id) = 0; id(p_step) = 0; }
+                }
+
+                if (c_buf[2] == 0x00) {
+                  if (  (rid == 0x02 && id(sw_f).state) || 
+                        (rid == 0x01 && id(sw_h).state) || 
+                        (rid == 0x19 && id(sw_uvc).state) ) {
+                    c_buf[2] = 0x01;
+                    c_buf[3] = (uint8_t)(c_buf[0] + c_buf[1] + c_buf[2]);
+                    ESP_LOGW("mspa_mitm", "OVERRIDE: 0x%02X -> ON", rid);
+                  }
+                  else if (rid == 0x03 && id(sel_b).state != "Arret") {
+                    int val = (id(sel_b).state == "Niveau1")?1:(id(sel_b).state == "Niveau2")?2:3;
+                    c_buf[2] = (uint8_t)val;
+                    c_buf[3] = (uint8_t)(c_buf[0] + c_buf[1] + c_buf[2]);
+                  }
+                }
+              }
+              id(uart_spa).write_array(c_buf, 4);
+              c_idx = 0;
+            }
+            else if (c_buf[0] == 0x00 && c_idx == 5) {
+              id(uart_spa).write_array(c_buf, 5); 
+              c_idx = 0;
+            }
+          }
+
+            static uint8_t s_win[5] = {0};
+            static uint8_t last_1A_raw = 0xFF;
+            int s_limit = 0;
+
+            while (id(uart_spa).available() && s_limit++ < 12) {  // Respiration CPU (Fix lenteur UI)
+              uint8_t sc; id(uart_spa).read_byte(&sc);
+              id(uart_clavier).write_byte(sc); 
+
+              for(int i=0; i<4; i++) s_win[i] = s_win[i+1];
+              s_win[4] = sc;
+
+              uint8_t sid = 0, d1 = 0, d2 = 0, valid = 0;
+              if (s_win[1] == 0xA5 && (uint8_t)(s_win[1]+s_win[2]+s_win[3]) == s_win[4]) {
+                sid = s_win[2]; d1 = s_win[3]; valid = 4;
+              } 
+              else if (s_win[0] == 0x00 && s_win[1] != 0 && (uint8_t)(s_win[1]+s_win[2]+s_win[3] - 0x11) == s_win[4]) {
+                sid = s_win[1]; d1 = s_win[2]; d2 = s_win[3]; valid = 5;
+              }
+
+              if (valid > 0) {
+                if (sid == 0x06) id(cur_temp).publish_state(d1 / 2.0f);
+                if (sid == 0x1B) {
+                   id(last_b_ms) = now;
+                   if (d1 == 0) id(sel_b).publish_state("Arret");
+                   else if (d1 <= 3) {
+                      id(sel_b).publish_state( (d1==1)?"Niveau1":(d1==2)?"Niveau2":"Niveau3" );
+                   }
+                   float val_c = (float)d2 + 30.0f;
+                   if (std::abs(id(consigne_setpoint).state - val_c) > 0.1) {
+                       id(consigne_setpoint).publish_state(val_c);
+                   }
+                }
+                if (sid == 0x1A) {
+                  if (d1 != 0) {
+                      id(raw_1A_val) = d1;
+                      id(last_1A_nonzero_ms) = now;
+                  } else if (now - id(last_1A_nonzero_ms) > 3000) {
+                      id(raw_1A_val) = 0;
+                  }
+                  id(status_ready).publish_state(d1 & 0x08);
+                  // TIMER DB (logic_spec.md §6) : jamais lire bits bruts pour l'UI
+                  if (d1 & 0x01) id(last_f_ms) = now;  // Pompe ON vue
+                  if (d1 & 0x02) id(last_h_ms) = now;  // Chauffe ON vue
+                  if (d1 & 0x04) id(last_u_ms) = now;  // UVC ON vue
+                }
+              }
+            }
+
+            static uint32_t last_p = 0;
+            static bool l_f = false, l_h = false, l_b = false, l_u = false;
+            static bool first_run = true;
+            static char last_h_buf[64] = "";
+
+            if (now - last_p > 500) {
+              last_p = now;
+
+              // --- ETATS PAR TIMER (logic_spec.md §6 — anti-oscillation) ---
+              // REGLE : ne pas lire raw_1A_val directement pour is_f/is_h/is_u
+              bool is_f = (id(last_f_ms) != 0 && (now - id(last_f_ms) < 3000));
+              bool is_h = (id(last_h_ms) != 0 && (now - id(last_h_ms) < 3000));
+              bool is_b = (id(last_b_ms) != 0 && (now - id(last_b_ms) < 5000));
+              bool is_u = (id(last_u_ms) != 0 && (now - id(last_u_ms) < 3000));
+              
+              if (is_f != l_f || first_run) { id(f_st).publish_state(is_f); l_f = is_f; }
+              if (is_h != l_h || first_run) { id(h_st).publish_state(is_h); l_h = is_h; }
+              if (is_b != l_b || first_run) { id(b_st).publish_state(is_b); l_b = is_b; }
+              if (is_u != l_u || first_run) { id(uvc_st).publish_state(is_u); l_u = is_u; }
+              first_run = false;
+
+              char h_buf[64];
+              sprintf(h_buf, "F:%02X | Timer F:%d H:%d B:%d", id(raw_1A_val), is_f, is_h, is_b);
+              if (strcmp(h_buf, last_h_buf) != 0) {
+                  id(raw_hex).publish_state(h_buf);
+                  strcpy(last_h_buf, h_buf);
+              }
+            }
+          yield();
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      manual_ip:
+        static_ip: !secret static_ip
+        gateway: !secret gateway
+        subnet: !secret subnet
+  ap:
+    ssid: "MSPA-RECOVERY"
+
+ota:
+  - platform: esphome
+
+logger:
+  level: ERROR
+
+web_server:
+  port: 80
+
+globals:
+  - id: eedomus_enabled
+    type: bool
+    initial_value: "false"
+  - id: eedomus_reachable
+    type: bool
+    initial_value: "false"
+  - id: pending_uart_id
+    type: int
+    initial_value: "0"
+  - id: pending_uart_val
+    type: int
+    initial_value: "0"
+  - id: p_step
+    type: int
+    initial_value: "0"
+  - id: eedomus_warn_logged
+    type: bool
+    initial_value: "false"
+  - id: raw_1A_val
+    type: uint8_t
+    initial_value: "0"
+  - id: last_f_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_h_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_b_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_1A_nonzero_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: last_u_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_temp_pushed
+    type: float
+    initial_value: "0.0"
+  - id: last_temp_push_time_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_consigne_pushed
+    type: float
+    initial_value: "0.0"
+  - id: last_consigne_push_time_ms
+    type: uint32_t
+    initial_value: "0"
+
+http_request:
+  useragent: esphome/mspa
+  timeout: 5s
+
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    rx_buffer_size: 1024
+  - id: uart_clavier
+    tx_pin: 13
+    rx_pin: 14
+    baud_rate: 9600
+    rx_buffer_size: 1024
+
+script:
+  - id: probe_eedomus
+    mode: single
+    then:
+      - http_request.get:
+          url: !lambda |-
+            static char url[64];
+            sprintf(url, "http://%s/api/", "${eedomus_host}");
+            return url;
+          on_response:
+            then:
+              - lambda: 'id(eedomus_reachable) = true;'
+          on_error:
+            then:
+              - lambda: 'id(eedomus_reachable) = false;'
+
+# --- ORDRE D'AFFICHAGE ---
+
+text_sensor:
+  - platform: template
+    name: "Dernière Trame"
+    id: last_frame_ui
+    icon: "mdi:history"
+  - platform: template
+    name: "MSPA Audit RAW"
+    id: raw_hex
+    icon: "mdi:hexadecimal"
+
+button:
+  - platform: template
+    name: "Reset Instantané"
+    icon: "mdi:refresh"
+    on_press:
+      then:
+        - lambda: |-
+            // On purge le timer 20s immédiatement pour éteindre l'UI
+            id(last_f_ms) = 0; id(last_h_ms) = 0; id(last_b_ms) = 0;
+            id(f_st).publish_state(false); id(h_st).publish_state(false); id(b_st).publish_state(false);
+            ESP_LOGW("mspa", "RESET INSTANTANÉ");
+
+binary_sensor:
+  - platform: template
+    name: "Etat reel UVC"
+    id: uvc_st
+    icon: "mdi:check-circle-outline"
+  - platform: template
+    name: "Etat reel bulles"
+    id: b_st
+    icon: "mdi:check-circle-outline"
+  - platform: template
+    name: "Etat reel chauffage"
+    id: h_st
+    icon: "mdi:check-circle-outline"
+  - platform: template
+    name: "Etat reel filtration"
+    id: f_st
+    icon: "mdi:check-circle-outline"
+  - platform: template
+    name: "Systeme Pret (Bit 3)"
+    id: status_ready
+    icon: "mdi:check-network"
+
+sensor:
+  - platform: template
+    name: "Temperature eau"
+    id: cur_temp
+    unit_of_measurement: "°C"
+    update_interval: never
+
+switch:
+  - platform: template
+    name: "Filtration"
+    id: sw_f
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(pending_uart_id) = 0x02;
+            id(pending_uart_val) = 0x01;
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(pending_uart_id) = 0x02;
+            id(pending_uart_val) = 0x00;
+  - platform: template
+    name: "Chauffage"
+    id: sw_h
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(p_step) = 0;
+            id(pending_uart_id) = 0x01;
+            id(pending_uart_val) = 0x01;
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(p_step) = 0;
+            id(pending_uart_id) = 0x01;
+            id(pending_uart_val) = 0x00;
+  - platform: template
+    name: "UVC"
+    id: sw_uvc
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(p_step) = 0;
+            id(pending_uart_id) = 0x19;
+            id(pending_uart_val) = 0x01;
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(p_step) = 0;
+            id(pending_uart_id) = 0x19;
+            id(pending_uart_val) = 0x00;
+  - platform: template
+    name: "Verrouillage clavier"
+    id: lock
+    optimistic: true
+
+select:
+  - platform: template
+    name: "Mode bulles"
+    id: sel_b
+    options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+    optimistic: true
+    set_action:
+      then:
+        - lambda: |-
+            // MODE 1 : DIRECT ASYNCHRONE (Ne PAS passer par pending_uart_id/Sniper)
+            int val = 0;
+            if (x == "Niveau1") val = 1;
+            else if (x == "Niveau2") val = 2;
+            else if (x == "Niveau3") val = 3;
+            uint8_t buf[4] = {0xA5, 0x03, (uint8_t)val, (uint8_t)(0xA5 + 0x03 + val)};
+            id(uart_spa).write_array(buf, 4);
+            ESP_LOGW("mspa_bulles", "BULLES DIRECT: val=%d", val);
+
+number:
+  - platform: template
+    name: "Temperature consigne"
+    id: consigne_setpoint
+    min_value: 20
+    max_value: 40
+    step: 0.5
+    unit_of_measurement: "°C"
+    set_action:
+      then:
+        - lambda: |-
+            uint8_t val = (uint8_t)(x * 2.0f);
+            uint8_t buf[4] = {0xA5, 0x04, val, (uint8_t)(0xA5 + 0x04 + val)};
+            id(uart_spa).write_array(buf, 4);
+            ESP_LOGW("mspa_consigne", "CONSIGNE INJECT: %.1fC -> 0x%02X", x, val);

@@ -1,0 +1,113 @@
+﻿[02:03:02.075][I][app:206]: ESPHome version 2026.1.4 compiled on 2026-03-05 02:01:15 +0100
+[02:03:02.078][I][app:213]: ESP32 Chip: ESP32 r3.1, 2 core(s)
+[02:03:02.078][W][app:222]: Set minimum_chip_revision: "3.1" to reduce binary size
+[02:03:02.509][I][mspa:121]: [+396ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:02.567][I][mspa:175]: [+7ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:02.703][I][mspa:175]: [+239ms] [CLAV->SPA] A5 01 00 A6  Chauffage OFF
+[02:03:02.773][I][mspa:121]: [+4ms] [CLAV->SPA] A5 01 00 A6  Chauffage OFF
+[02:03:02.841][I][mspa:121]: [+158ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:02.841][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:02.878][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[02:03:03.047][I][mspa:121]: [+198ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:03.048][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:03.492][I][mspa:121]: [+402ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:03.559][I][mspa:175]: [+6ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:03.855][I][mspa:121]: [+397ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:03.905][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:04.062][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[02:03:04.078][I][mspa:121]: [+205ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:04.106][I][mspa:175]: [+3ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:04.468][I][mspa:121]: [+396ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:04.480][I][mspa:175]: [+6ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:04.943][I][mspa:121]: [+396ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:05.078][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:05.129][I][mspa:121]: [+202ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:05.219][I][mspa:175]: [+4ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:05.274][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[02:03:05.560][I][mspa:121]: [+401ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:05.639][I][mspa:175]: [+6ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:05.668][I][mspa:175]: [+188ms] [CLAV->SPA] A5 19 00 BE  UVC OFF
+[02:03:05.668][I][mspa:121]: [+4ms] [CLAV->SPA] A5 19 00 BE  UVC OFF
+[02:03:05.718][I][mspa:175]: [+34ms] [CLAV->SPA] A5 15 00 BA  Sanitize
+[02:03:05.769][I][mspa:121]: [+5ms] [CLAV->SPA] A5 15 00 BA  Sanitize
+[02:03:05.893][I][mspa:121]: [+169ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:05.954][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:06.091][I][mspa:121]: [+200ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:06.093][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:06.533][I][mspa:121]: [+398ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:06.626][I][mspa:175]: [+6ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:06.902][I][mspa:121]: [+402ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:06.959][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:07.128][I][mspa:121]: [+194ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:07.131][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:07.208][I][mspa:175]: [+60ms] [CLAV->SPA] A5 02 00 A7  Filtration OFF
+[02:03:07.270][I][mspa:121]: [+4ms] [CLAV->SPA] A5 02 00 A7  Filtration OFF
+[02:03:07.511][I][mspa:121]: [+339ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:07.571][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:07.963][I][mspa:121]: [+397ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:07.963][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:08.118][I][mspa:121]: [+202ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:08.242][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:08.526][I][mspa:121]: [+398ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:08.575][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:08.663][I][mspa:175]: [+137ms] [CLAV->SPA] A5 03 00 A8  Bulles lvl=0
+[02:03:08.663][I][mspa:121]: [+5ms] [CLAV->SPA] A5 03 00 A8  Bulles lvl=0
+[02:03:08.930][I][mspa:121]: [+261ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:08.989][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:09.132][I][mspa:121]: [+196ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:09.214][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:09.571][I][mspa:121]: [+403ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:09.571][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:09.943][I][mspa:121]: [+397ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:10.009][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:10.038][I][mspa:121]: [+81ms] [CLAV->SPA] A5 01 01 A7  Chauffage ON
+[02:03:10.059][W][mspa:202]: >>> INJECT AUTO: Chauffage ON <<<
+[02:03:10.147][I][mspa:121]: [+122ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:10.151][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:10.168][I][mspa:175]: [+2ms] [CLAV->SPA] A5 0D 00 B2  Poll
+[02:03:10.169][I][mspa:121]: [apres 0x0D] [+3ms] [CLAV->SPA] A5 0D 00 B2  Poll
+[02:03:10.552][I][mspa:121]: [apres 0x0D] [+395ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:10.605][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:11.139][I][mspa:121]: [+398ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:11.139][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:11.171][I][mspa:121]: [+202ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:11.226][I][mspa:175]: [+4ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:11.573][I][mspa:121]: [+399ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:11.630][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:11.658][I][mspa:175]: [+86ms] [CLAV->SPA] A5 01 00 A6  Chauffage OFF
+[02:03:11.658][I][mspa:121]: [+4ms] [CLAV->SPA] A5 01 00 A6  Chauffage OFF
+[02:03:11.982][I][mspa:121]: [+313ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:12.046][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:12.221][I][mspa:121]: [+197ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:12.278][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:12.695][I][mspa:121]: [+403ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:12.702][I][mspa:175]: [+5ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:12.988][I][mspa:121]: [+396ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:13.027][I][mspa:175]: [+5ms] [SPA->CLAV] A5 1A 04 C3  Flags 0x04 (Pump=0 Heat=0 Idle=0)
+[02:03:13.027][W][esphome.ota:152]: Magic bytes mismatch! 0x00-0x1B-0x01-0x0A-0x15
+[02:03:13.190][I][mspa:121]: [+200ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:13.258][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:13.667][I][mspa:121]: [+401ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:13.884][I][mspa:175]: [+6ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:14.016][I][mspa:121]: [+397ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:14.034][I][mspa:175]: [+7ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:14.234][I][mspa:121]: [+197ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:14.312][I][mspa:175]: [+5ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:14.612][I][mspa:121]: [+400ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:14.644][I][mspa:175]: [+7ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:14.644][I][mspa:175]: [+28ms] [CLAV->SPA] A5 19 00 BE  UVC OFF
+[02:03:14.644][I][mspa:121]: [+5ms] [CLAV->SPA] A5 19 00 BE  UVC OFF
+[02:03:14.702][I][mspa:175]: [+42ms] [CLAV->SPA] A5 15 00 BA  Sanitize
+[02:03:14.774][I][mspa:121]: [+5ms] [CLAV->SPA] A5 15 00 BA  Sanitize
+[02:03:15.032][I][mspa:121]: [+321ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:15.082][I][mspa:175]: [+6ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:15.257][I][mspa:121]: [+197ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:15.269][I][mspa:175]: [+6ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:15.621][I][mspa:121]: [+397ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:15.681][I][mspa:175]: [+7ms] [SPA->CLAV] A5 06 1A C5  Temp 13.0C
+[02:03:16.034][I][mspa:121]: [+398ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:16.081][I][mspa:175]: [+6ms] [SPA->CLAV] A5 1A 03 C2  Flags 0x03 (Pump=1 Heat=1 Idle=0)
+[02:03:16.137][I][mspa:175]: [+106ms] [CLAV->SPA] A5 02 00 A7  Filtration OFF
+[02:03:16.140][I][mspa:121]: [+7ms] [CLAV->SPA] A5 02 00 A7  Filtration OFF
+[02:03:16.297][I][mspa:121]: [+87ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
+[02:03:16.379][I][mspa:175]: [+6ms] [SPA->CLAV] A5 08 00 AD  0x08(SPA)
