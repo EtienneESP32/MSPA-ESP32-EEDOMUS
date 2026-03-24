@@ -10,6 +10,7 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 | `docs/archive/` | Archives des anciens logs UART et configurations de tests obsolètes |
 | `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) – ESP32 classique (Architecture V3.5 Sync-Sniper) |
 | `esphome/mspa-controller-s3.yaml` | Variante **ESP32-S3** (DEVKITC-1 N16R8) – voir `docs/hardware_esp32s3.md` |
+| `esphome/mspa-simulator.yaml` | **Simulateur MSPA** (v1.5.9) – Banc de test matériel pour injection UART |
 | `esphome/mspa-uart-sniffer.yaml` | Firmware d’audit : capture des trames UART (sans modifier le bus) |
 
 ## Matériel
@@ -26,6 +27,7 @@ Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (s
 - **Config eedomus** : `docs/config_eedomus.md` (périphériques, correspondance ESP↔Eedomus, création des périphériques)
 - **Hardware ESP32** : `docs/hardware_esp32.md` (brochage, level shifter, firmware dédié)
 - **Hardware ESP32-S3** : `docs/hardware_esp32s3.md` (évolution N16R8, migration, `mspa-controller-s3.yaml`)
+- **Simulateur (Banc de test)** : `docs/simulator_user_guide.md` (guide d'utilisation du module de simulation v1.5.9)
 - **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
 - **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
 - **Changelog** : `docs/CHANGELOG.md` (Passage à l'architecture "Sync-Sniper" v3.5.0, Buffer UART 1024, fix UVC)
