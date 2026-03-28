@@ -1,67 +1,58 @@
 # Contrôleur MSPA (ESP32)
 
-Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (série D), avec pilotage domotique (eedomus) et interface Web.
+Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (série D), avec pilotage domotique (eedomus), interface Web et **Firewall UART** intégré.
 
-## Contenu du dépôt
+## 🚀 État du Projet (v6.3.4-STABLE)
 
-| Dossier / Fichier | Rôle |
-|-------------------|------|
-| `docs/` | Documentation : protocole, règles logiques, plan de tests (v3.5.0 révisée) |
-| `docs/archive/` | Archives des anciens logs UART et configurations de tests obsolètes |
-| `esphome/mspa-controller.yaml` | Firmware principal (pont + commandes + eedomus) – ESP32 classique (Architecture V3.5 Sync-Sniper) |
-| `esphome/mspa-controller-s3.yaml` | Variante **ESP32-S3** (DEVKITC-1 N16R8) – voir `docs/hardware_esp32s3.md` |
-| `esphome/mspa-simulator.yaml` | **Simulateur MSPA** (v1.5.9) – Banc de test matériel pour injection UART |
-| `esphome/mspa-uart-sniffer.yaml` | Firmware d’audit : capture des trames UART (sans modifier le bus) |
+Le projet est actuellement dans sa version la plus stable et aboutie, validée sur banc de test et en situation réelle.
 
-## Matériel
+*   **Firmware Contrôleur** : [v6.3.4-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)
+*   **Simulateur Labo** : [v1.6.0-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-simulator.yaml)
 
-- **ESP32** (UART 9600 bps) – brochure : `docs/hardware_esp32.md`
-- **Level shifter** 5V ↔ 3,3 V (SPA et clavier en 5 V TTL)
-- Câblage : voir `docs/protocol_mspa.md`
+---
 
-## Documentation
+## 🗺️ Cartographie du Dépôt
 
-- **Protocole** : `docs/protocol_mspa.md` (structure des trames, IDs, checksum)
-- **Règles logiques** : `docs/logic_spec.md` (priorité, lock, source de vérité)
-- **Tests** : `docs/test_plan.md` (phases avec/sans eau, sniffer)
-- **Config eedomus** : `docs/config_eedomus.md` (périphériques, correspondance ESP↔Eedomus, création des périphériques)
-- **Hardware ESP32** : `docs/hardware_esp32.md` (brochage, level shifter, firmware dédié)
-- **Hardware ESP32-S3** : `docs/hardware_esp32s3.md` (évolution N16R8, migration, `mspa-controller-s3.yaml`)
-- **Simulateur (Banc de test)** : `docs/simulator_user_guide.md` (guide d'utilisation du module de simulation v1.5.9)
-- **Secrets** : `docs/secrets_reference.md` (liste complète des clés ; recréer `secrets.yaml` en local)
-- **Projets similaires** : `docs/projets_similaires.md` (Balboa, ESPHomeSpa, Intex, Watkins – comparaison)
-- **Changelog** : `docs/CHANGELOG.md` (Passage à l'architecture "Sync-Sniper" v3.5.0, Buffer UART 1024, fix UVC)
-- **Dépannage / logs** : `docs/depannage_logs.md` (erreurs HTTP, OTA, eedomus)
-- **Cursor (workspace, nouveau projet)** : `docs/cursor_workspace.md` (workspace vs dossier, créer/ouvrir un autre projet)
+Pour comprendre le projet en une passe, voici comment les fichiers sont organisés :
 
-## Première utilisation (secrets)
+### 1. Cœur du Système (Dossier `/esphome`)
+C'est ici que se trouve le code "vivant" qui tourne sur tes ESP32.
+- **[mspa-controller.yaml](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)** : Le micrologiciel principal. Il gère le WiFi, l'interface Web, et la communication avec Eedomus.
+- **[components/mspa_uart/](file:///c:/Users/ebesa/Documents/MSPA/esphome/components/mspa_uart/)** : Le moteur C++ (`mspa_uart.h`). C'est le cerveau qui décode le protocole MSPA, gère le **Firewall** et le **Sniper Engine**.
+- **[mspa-simulator.yaml](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-simulator.yaml)** : Le micrologiciel du SPA virtuel pour tes tests sur banc.
 
-Les firmwares dans `esphome/` utilisent des **secrets** (WiFi, eedomus). Aucun mot de passe n’est dans le dépôt.
+### 2. Documentation de Référence (Dossier `/docs`)
+Les guides essentiels pour la maintenance et l'utilisation quotidienne.
+- **[mspa_full_reverse.md](file:///c:/Users/ebesa/Documents/MSPA/docs/mspa_full_reverse.md)** : La "Bible" du protocole. Tout ce qu'on sait sur les trames `0xA5`.
+- **[test_bench_simulator.md](file:///c:/Users/ebesa/Documents/MSPA/docs/test_bench_simulator.md)** : Comment câbler et utiliser ton banc de test.
+- **[simulator_user_guide.md](file:///c:/Users/ebesa/Documents/MSPA/docs/simulator_user_guide.md)** : Guide précis des fonctions du simulateur v1.6.0.
+- **[config_eedomus.md](file:///c:/Users/ebesa/Documents/MSPA/docs/config_eedomus.md)** : Guide d'installation des périphériques sur ton portail Eedomus.
+- **[CHANGELOG.md](file:///c:/Users/ebesa/Documents/MSPA/docs/CHANGELOG.md)** : Historique des versions et des corrections majeures.
 
-1. Copie `esphome/secrets.yaml.example` en **`esphome/secrets.yaml`**
-2. Ouvre `esphome/secrets.yaml` et remplace les valeurs par les tiennes (SSID, mot de passe WiFi, optionnellement eedomus)
-3. **Ne committe jamais** `secrets.yaml` (il est dans `.gitignore`)
+### 3. Mémoire du Projet (Dossier `/archive`)
+L'historique des recherches, des anciens prototypes et des études de risques passées.
+- **[v4.0_alpha/](file:///c:/Users/ebesa/Documents/MSPA/archive/firmware/v4.0_alpha/)** : Anciens prototypes du firewall.
+- **[docs/](file:///c:/Users/ebesa/Documents/MSPA/archive/docs/)** : Analyses de risques, anciens schémas et études comparatives de projets similaires.
 
-## Compilation / flash
+---
 
-```bash
-# Contrôleur – OTA (remplacer <IP_ESP> par l’IP actuelle de l’ESP, ou utiliser le port série)
-py -m esphome run esphome/mspa-controller.yaml --device <IP_ESP>
+## 🛠️ Installation Rapide
 
-# Contrôleur – USB (si OTA indisponible)
-py -m esphome run esphome/mspa-controller.yaml --device COM3
+1.  **Secrets** : Copie `esphome/secrets.yaml.example` vers `esphome/secrets.yaml` et remplis tes accès WiFi/API.
+2.  **Flash (USB)** :
+    ```bash
+    py -m esphome run esphome/mspa-controller.yaml --device COM3
+    ```
+3.  **Flash (OTA)** : Une fois sur le réseau, utilise l'IP fixe définie dans tes secrets.
 
-# Sniffer
-py -m esphome run esphome/mspa-uart-sniffer.yaml --device <IP_ESP>
-# ou --device COM3
-```
+---
 
-L’IP de l’ESP peut être en DHCP ou fixe (voir `secrets.yaml.example` et `manual_ip` dans le contrôleur). Adapter `<IP_ESP>` ou le port COM selon ton réseau. Aucune donnée sensible n’est dans le dépôt.
+## ✨ Fonctionnalités Clés (Architecture v6.x)
 
-## Dépannage et logs
+- **UART Firewall** : Le clavier physique peut être verrouillé à distance (`sw_lock`) pour empêcher toute manipulation locale, tout en préservant le lien vital (Heartbeat) avec le moteur.
+- **Silk Filter (Miroir)** : L'interface ne "devine" jamais l'état du spa. Elle attend la confirmation réelle venant du bus UART pour mettre à jour les boutons.
+- **Sniper Engine** : Les commandes sont injectées avec une précision millimétrée après chaque trame de température pour garantir un taux de succès de 100%.
+- **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à 40°C.
 
-En cas de **Failed to create socket** ou **ESP_ERR_HTTP_CONNECT** (probe eedomus), ou **httpd_accept_conn: error (23)** : voir `docs/depannage_logs.md` (analyse des causes et pistes de résolution).
-
-## Licence
-
-À définir (ex. MIT). Voir fichier LICENSE si présent.
+---
+*Projet maintenu par Etienne - Stabilité Master validée le 28/03/2026.*

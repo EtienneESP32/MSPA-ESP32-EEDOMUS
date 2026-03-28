@@ -1,6 +1,6 @@
-# Reverse Engineering Global – MSPA
+# Reverse Engineering Global – MSPA (v6.x Stabilisé)
 
-Ce document est la "Bible" du fonctionnement du SPA. Il dépasse l'analyse technique des trames UART pour décrire l'intelligence et le comportement global de la machine.
+Ce document est la "Bible" du fonctionnement du SPA. Il synthétise l'intelligence et le comportement global validés par le **Simulateur v1.6.0** et le **Contrôleur v6.3.4-STABLE**.
 
 ## 1. Schéma Global des Flux
 
@@ -116,5 +116,5 @@ Dictionnaire de référence des trames `SPA -> CLAVIER`.
 | **`0x1A`** | **IHM (Voyants)** | Bit 0: Filtre / Bit 1: Chauffe / Bit 2: UVC | Clignotant si État = TESTING. Fixe si RUNNING. |
 | **`0x1A` (Alert)** | **Alerte Filtre** | Bit 0 Clignote + 0x08 = `00` | Signature spécifique : Icône active mais moteur OFF. |
 | **`0x06`** | **Temp. Réelle** | Valeur Hex + 0 | Mise à jour chaque seconde. |
-| **`0x1B`** | **Consigne/Goal** | D1: Bulles / D2: Temp Cible | Latence nulle. Mémoire du dernier réglage. |
+| **ID 0x1B** | **Consigne/Goal** | D1: Bulles / D2: Temp Cible | **Note** : D2 est un **int8_t** (supporté < 30°C). |
 | **`0x12`** | **Moteur Bulles** | `01` (Présent) | Heartbeat asynchrone (2x par sec). |

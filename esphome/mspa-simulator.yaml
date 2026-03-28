@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-5-9"
-  version: "1.5.9"
+  name: "mspa-sim-v1-6-0"
+  version: "1.6.0"
 
 esphome:
   name: ${name}
@@ -275,14 +275,12 @@ button:
     name: "ACTION: BULLLES"
     on_press:
       - lambda: |-
-          uint8_t next = 0;
-          if (id(sim_bubbles) == 0) next = 2;
-          else if (id(sim_bubbles) == 2) next = 3;
-          else if (id(sim_bubbles) == 3) next = 1;
-          else next = 0;
-          id(sim_bubbles) = next;
-          id(script_update_bubbles_label).execute();
-          uint8_t f[4] = {0xA5, 0x03, next, (uint8_t)(0xA5+0x03+next)};
+          uint8_t next_v = 0;
+          if (id(sim_bubbles) == 0) next_v = 2;
+          else if (id(sim_bubbles) == 2) next_v = 3;
+          else if (id(sim_bubbles) == 3) next_v = 1;
+          else next_v = 0;
+          uint8_t f[4] = {0xA5, 0x03, next_v, (uint8_t)(0xA5+0x03+next_v)};
           id(uart_kbd).write_array(f, 4);
   - platform: template
     name: "ACTION: UVC"
@@ -336,6 +334,6 @@ number:
     mode: box
     initial_value: 38
     min_value: 20
-    max_value: 42
+    max_value: 40
     step: 1.0
     set_action: { lambda: id(sim_setpoint) = (uint8_t)x; }

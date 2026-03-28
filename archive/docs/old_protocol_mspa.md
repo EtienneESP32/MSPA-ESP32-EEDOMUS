@@ -18,9 +18,12 @@
 - Utilisée pour les commandes de base et la température standard.
 
 ### Trame Étendue (5 octets)
-- **ID 0x1B** : Retour d'état étendu (`00 1B D1 D2 CHK`).
-  - **D1** : Niveau des Bulles (0: OFF, 1-3: Niveaux).
-  - **D2** : Température de Consigne. Formule : `D2 = Consigne - 30`. (Ex: 10 = 40°C).
+- **ID 0x1B** : Retour d'état étendu (Bulles & Consigne) - *Taille : 5 octets*
+  - D1 : Niveau des bulles (0: Arrêt, 1: Doux, 2: Moyen, 3: Fort)
+  - D2 : Température de Consigne. **IMPORTANT** : Valeur encodée comme un **octet signé (int8_t)**.
+    - Formule : $Consigne = D2_{signed} + 30$
+    - Exemple : 38°C $\rightarrow$ 8 | 40°C $\rightarrow$ 10 | 22°C $\rightarrow$ -8 ($0xF8$) | 20°C $\rightarrow$ -10 ($0xF6$)
+  - CS : Somme simple (A5 + 1B + D1 + D2)
 - **Calcul** : `Check = (B1 + B2 + B3 - 0x11) & 0xFF` (Somme des données moins 17).
 
 ---
@@ -39,7 +42,7 @@
 | Poll/Ping  | 0D       | Clavier -> SPA. (Ancien point de sniper). |
 
 ### États Moteur (Spa → Clavier)
-- **ID 0x1A** : **Vérité Visuelle (Interface)**. Bit 0: Pompe, Bit 1: Chauffe, Bit 2: UVC, Bit 3: Prêt. Clignote pendant les phases de test ou erreurs.
+- **ID 0x1A** : **Vérité Visuelle (Interface)**. Bit 0: Pompe, Bit 1: Chauffe, Bit 2: UVC, Bit 3: Prêt. Clignote pendant les phases de test ou erreurs (Alerte Filtre si Bit 0 clignote hors marche pompe).
 - **ID 0x1B** : **Extended Status**. D1 = Bulles, D2 = Consigne.
 
 ---

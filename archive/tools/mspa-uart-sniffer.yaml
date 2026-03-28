@@ -1,0 +1,117 @@
+# Sniffer / Audit UART MSPA – FULL SPECTRUM
+# Version 3.7.3 (Sécurité & Filtrage)
+# Fix F1: Pont on_loop + Relay Prioritaire
+# Fix OTA: Limites de boucle (Respiration)
+# Fix Saturation: Log sur changement uniquement
+
+esphome:
+  name: mspa-uart-sniffer
+  friendly_name: MSPA UART Sniffer
+  on_loop:
+    then:
+      - lambda: |-
+          uint32_t now = millis();
+          
+          // --- SENS 1 : SPA -> CLAVIER ---
+          static uint8_t s_buf[32];
+          static size_t s_len = 0;
+          static uint8_t last_s_1A = 0xFF;
+          static uint8_t last_s_08 = 0xFF;
+          int s_limit = 0;
+
+          while (id(uart_spa).available() && s_limit++ < 16) {
+            uint8_t c;
+            if (id(uart_spa).read_byte(&c)) {
+              id(uart_clavier).write_byte(c); // RELAY IMMEDIAT
+              if (s_len < sizeof(s_buf)) s_buf[s_len++] = c;
+            }
+          }
+          
+          size_t si = 0;
+          while (si + 4 <= s_len) {
+            if (s_buf[si] == 0xA5) {
+              uint8_t id = s_buf[si+1], d1 = s_buf[si+2], cs = s_buf[si+3];
+              if (((uint8_t)(0xA5 + id + d1)) == cs) {
+                bool log = true;
+                if (id == 0x1A) { if (d1 == last_s_1A) log = false; last_s_1A = d1; }
+                if (id == 0x08) { if (d1 == last_s_08) log = false; last_s_08 = d1; }
+                if (log) ESP_LOGI("mspa", "[SPA->CLAV] A5 %02X %02X %02X", id, d1, cs);
+                si += 4;
+              } else { si++; }
+            } else if (s_buf[si] == 0x00) {
+              if (si + 5 <= s_len) {
+                uint8_t id = s_buf[si+1], d1 = s_buf[si+2], d2 = s_buf[si+3], cs = s_buf[si+4];
+                if (((uint8_t)(id + d1 + d2 - 0x11)) == cs) {
+                  ESP_LOGI("mspa", "[SPA->CLAV] 00 %02X %02X %02X %02X", id, d1, d2, cs);
+                  si += 5;
+                } else { si++; }
+              } else { break; }
+            } else { si++; }
+          }
+          if (si > 0) { memmove(s_buf, s_buf + si, s_len - si); s_len -= si; }
+
+          // --- SENS 2 : CLAVIER -> SPA ---
+          static uint8_t c_buf[32];
+          static size_t c_len = 0;
+          static uint8_t last_c_0D = 0xFF;
+          int c_limit = 0;
+
+          while (id(uart_clavier).available() && c_limit++ < 16) {
+            uint8_t c;
+            if (id(uart_clavier).read_byte(&c)) {
+              id(uart_spa).write_byte(c); // RELAY IMMEDIAT
+              if (c_len < sizeof(c_buf)) c_buf[c_len++] = c;
+            }
+          }
+          
+          size_t ci = 0;
+          while (ci + 4 <= c_len) {
+            if (c_buf[ci] == 0xA5) {
+              uint8_t id = c_buf[ci+1], d1 = c_buf[ci+2], cs = c_buf[ci+3];
+              if (((uint8_t)(0xA5 + id + d1)) == cs) {
+                bool log = true;
+                // if (id == 0x0D) { if (d1 == last_c_0D) log = false; last_c_0D = d1; }
+                if (log) ESP_LOGI("mspa", "[CLAV->SPA] A5 %02X %02X %02X", id, d1, cs);
+                ci += 4;
+              } else { ci++; }
+            } else { ci++; }
+          }
+          if (ci > 0) { memmove(c_buf, c_buf + ci, c_len - ci); c_len -= ci; }
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      manual_ip:
+        static_ip: !secret static_ip
+        gateway: !secret gateway
+        subnet: !secret subnet
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  platform: esphome
+
+logger:
+  level: INFO
+  baud_rate: 921600
+
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    rx_buffer_size: 1024
+
+  - id: uart_clavier
+    tx_pin: 13
+    rx_pin: 14
+    baud_rate: 9600
+    rx_buffer_size: 1024
