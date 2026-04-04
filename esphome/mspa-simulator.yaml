@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-6-0"
-  version: "1.6.0"
+  name: "mspa-sim-v1-6-1"
+  version: "1.6.1"
 
 esphome:
   name: ${name}
@@ -32,26 +32,33 @@ esphome:
                      uint32_t now = millis();
                      if (now - id(sim_last_cmd_time) > 500) { // Anti-Vibration 500ms
                         if (sid == 0x01) { // CHAUFFE
+                           ESP_LOGD("SIM", "Commande CHAUFFE reçue: %d", val);
                            if (val == 0) { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); }
                            else { if (id(sim_heat_phase) == 0) id(script_heat).execute(); else { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); } }
                            id(sim_last_cmd_time) = now;
                         }
                         if (sid == 0x02) { // FILTRE
+                           ESP_LOGD("SIM", "Commande FILTRATION reçue (Toggle)");
                            if (val == 0) { id(sim_filt_active) = false; id(script_pump_cooldown).execute(); }
                            else { id(sim_filt_active) = !id(sim_filt_active); if (!id(sim_filt_active)) id(script_pump_cooldown).execute(); }
                            id(sim_last_cmd_time) = now;
                         }
                         if (sid == 0x19) { // UVC
+                           ESP_LOGD("SIM", "Commande UVC reçue: %d", val);
                            if (val == 0) { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); }
                            else { if (id(sim_uvc_phase) == 0) id(script_uvc).execute(); else { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); } }
                            id(sim_last_cmd_time) = now;
                         }
                      }
                      if (sid == 0x03) { // BUBBLES
+                        ESP_LOGD("SIM", "Commande BULLES reçue: %d", val);
                         id(sim_bubbles) = val;
                         id(script_update_bubbles_label).execute();
                      }
-                     if (sid == 0x04) { id(sim_setpoint) = (uint8_t)(val / 2.0f); id(sim_setpoint_num).publish_state(id(sim_setpoint)); }
+                     if (sid == 0x04) { 
+                        ESP_LOGD("SIM", "Commande CONSIGNE reçue: %.1f°C", val/2.0f);
+                        id(sim_setpoint) = (uint8_t)(val / 2.0f); id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                     }
                      if (sid == 0x06) { id(sim_temp_bus).publish_state(val / 2.0f); }
                    } else { id(sim_err_4b)++; }
                 }
@@ -98,7 +105,7 @@ ota:
   - platform: esphome
 
 logger:
-  level: WARN
+  level: DEBUG
   baud_rate: 0 
 
 uart:
@@ -119,6 +126,7 @@ light:
   - platform: binary
     output: led_blue_out
     id: led_physical
+    internal: true
 
 globals:
   - id: sim_temp
@@ -199,11 +207,12 @@ interval:
     then:
       - lambda: |-
           id(sim_cycle)++; if (id(sim_cycle) >= 10) id(sim_cycle) = 0;
+          
           if (id(sim_uart_cmd_timer) > 0) { id(led_physical).turn_on(); id(sim_uart_cmd_timer)--; }
           else if (id(sim_uart_activity_timer) > 0) { if (id(sim_cycle)%2==0) id(led_physical).turn_on(); else id(led_physical).turn_off(); id(sim_uart_activity_timer)--; }
           else { id(led_physical).turn_off(); }
           
-          uint8_t f1A = 0x08;
+          uint8_t f1A = 0x08; 
           if (id(sim_filter_alert)) { if (id(sim_cycle)%10 < 5) f1A |= 0x01; else f1A &= ~0x01; id(sim_relay) = 0x00; }
           else {
             bool p_on = (id(sim_filt_active) || id(sim_heat_phase) > 0 || id(sim_uvc_phase) > 0);
@@ -213,25 +222,30 @@ interval:
             if (id(sim_uvc_phase) == 1) { if (id(sim_cycle)%10 < 5) f1A |= 0x04; } else if (id(sim_uvc_phase) == 2) f1A |= 0x04;
             if (f1A != 0x08) f1A &= ~0x08;
           }
-          id(sw_icon_heat).publish_state(f1A & 0x02); id(sw_icon_filt).publish_state(f1A & 0x01);
-          id(sw_icon_uvc).publish_state(f1A & 0x04); id(sw_rel_pump).publish_state(id(sim_relay)==0x03);
 
-          uint8_t b_val = id(sim_bubbles), s_val = (uint8_t)(id(sim_setpoint) - 30);
-          uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
-          id(uart_mb).write_array(f1B, 5);
-          
-          if (id(sim_cycle) == 0) {
-            uint8_t t_real = (uint8_t)(id(sim_temp) * 2.0f);
-            uint8_t f06[4] = {0xA5, 0x06, t_real, (uint8_t)(0xA5+0x06+t_real)};
-            id(uart_mb).write_array(f06, 4);
+          // --- OPTIMIZATION 1.6.1 : Safe-Sync ---
+          static uint8_t last_f1A = 0, last_rel = 0;
+          if (f1A != last_f1A) {
+            id(sw_icon_heat).publish_state(f1A & 0x02); 
+            id(sw_icon_filt).publish_state(f1A & 0x01);
+            id(sw_icon_uvc).publish_state(f1A & 0x04);
+            last_f1A = f1A;
           }
-          
+          if (id(sim_relay) != last_rel) {
+            id(sw_rel_pump).publish_state(id(sim_relay)==0x03);
+            last_rel = id(sim_relay);
+          }
+
+          // Heartbeat 1.6.0 (Ancien modèle bruyant)
           if (id(sim_cycle) % 2 == 0) {
             uint8_t f08[4] = {0xA5, 0x08, id(sim_relay), (uint8_t)(0xA5+0x08+id(sim_relay))}; id(uart_mb).write_array(f08, 4);
             uint8_t f1A_tr[4] = {0xA5, 0x1A, f1A, (uint8_t)(0xA5+0x1A+f1A)}; id(uart_mb).write_array(f1A_tr, 4);
             uint8_t f12[4] = {0xA5, 0x12, 0x01, 0xB8}; id(uart_mb).write_array(f12, 4);
           }
+          uint8_t b_val = id(sim_bubbles), s_val = (uint8_t)(id(sim_setpoint) - 30);
+          uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)}; id(uart_mb).write_array(f1B, 5);
           uint8_t f0D[4] = {0xA5, 0x0D, 0x00, 0xB2}; id(uart_kbd).write_array(f0D, 4);
+          uint8_t f06[4] = {0xA5, 0x06, (uint8_t)(id(sim_temp)*2.0f), (uint8_t)(0xA5+0x06+(uint8_t)(id(sim_temp)*2.0f))}; id(uart_mb).write_array(f06, 4);
 
 web_server:
   port: 80
