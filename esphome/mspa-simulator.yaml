@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-6-1"
-  version: "1.6.1"
+  name: "mspa-sim-v1-6-2"
+  version: "1.6.2"
 
 esphome:
   name: ${name}
@@ -223,7 +223,6 @@ interval:
             if (f1A != 0x08) f1A &= ~0x08;
           }
 
-          // --- OPTIMIZATION 1.6.1 : Safe-Sync ---
           static uint8_t last_f1A = 0, last_rel = 0;
           if (f1A != last_f1A) {
             id(sw_icon_heat).publish_state(f1A & 0x02); 
@@ -236,16 +235,26 @@ interval:
             last_rel = id(sim_relay);
           }
 
-          // Heartbeat 1.6.0 (Ancien modèle bruyant)
-          if (id(sim_cycle) % 2 == 0) {
+          // --- HEARTBEAT RÉALISTE (STAGGERED 1Hz) ---
+          if (id(sim_cycle) == 0) {
             uint8_t f08[4] = {0xA5, 0x08, id(sim_relay), (uint8_t)(0xA5+0x08+id(sim_relay))}; id(uart_mb).write_array(f08, 4);
+          }
+          if (id(sim_cycle) == 2) {
+            uint8_t b_val = id(sim_bubbles), s_val = (uint8_t)(id(sim_setpoint) - 30);
+            uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)}; id(uart_mb).write_array(f1B, 5);
+          }
+          if (id(sim_cycle) == 4) {
+            uint8_t f06[4] = {0xA5, 0x06, (uint8_t)(id(sim_temp)*2.0f), (uint8_t)(0xA5+0x06+(uint8_t)(id(sim_temp)*2.0f))}; id(uart_mb).write_array(f06, 4);
+          }
+          if (id(sim_cycle) == 6) {
             uint8_t f1A_tr[4] = {0xA5, 0x1A, f1A, (uint8_t)(0xA5+0x1A+f1A)}; id(uart_mb).write_array(f1A_tr, 4);
+          }
+          if (id(sim_cycle) == 8) {
             uint8_t f12[4] = {0xA5, 0x12, 0x01, 0xB8}; id(uart_mb).write_array(f12, 4);
           }
-          uint8_t b_val = id(sim_bubbles), s_val = (uint8_t)(id(sim_setpoint) - 30);
-          uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)}; id(uart_mb).write_array(f1B, 5);
-          uint8_t f0D[4] = {0xA5, 0x0D, 0x00, 0xB2}; id(uart_kbd).write_array(f0D, 4);
-          uint8_t f06[4] = {0xA5, 0x06, (uint8_t)(id(sim_temp)*2.0f), (uint8_t)(0xA5+0x06+(uint8_t)(id(sim_temp)*2.0f))}; id(uart_mb).write_array(f06, 4);
+          if (id(sim_cycle) == 5) {
+            uint8_t f0D[4] = {0xA5, 0x0D, 0x00, 0xB2}; id(uart_kbd).write_array(f0D, 4);
+          }
 
 web_server:
   port: 80
