@@ -89,6 +89,8 @@ logger:
 web_server:
   port: 80
 
+captive_portal:
+
 uart:
   - id: uart_spa
     tx_pin: 17
@@ -235,7 +237,7 @@ switch:
 
 select:
   - platform: template
-    name: "Bulles"
+    name: "Mode Bulles"
     id: sel_b
     icon: "mdi:chart-bubble"
     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
@@ -249,7 +251,7 @@ select:
 
 number:
   - platform: template
-    name: "Réglage Consigne"
+    name: "Temperature Consigne"
     id: test_setpoint
     icon: "mdi:thermometer"
     unit_of_measurement: "°C"
