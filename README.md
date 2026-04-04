@@ -3,6 +3,9 @@
 [![Project Version: v6.3.6](https://img.shields.io/badge/Controller-v6.3.6--STABLE-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
 [![Simulator Version: v1.6.3](https://img.shields.io/badge/Simulator-v1.6.3--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
 [![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
+[![Home Assistant: Ready](https://img.shields.io/badge/Home%20Assistant-Compatible-orange?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
+
+> **Keywords**: `MSPA`, `ESP32`, `ESPHome`, `Home Assistant`, `Eedomus`, `Man-in-the-Middle`, `UART`, `Smart-Home`, `DIY-Spa`
 
 Bienvenue dans l'écosystème **MSPA-Controller**, la solution ultime pour transformer ton spa MSPA (Série D) en un objet connecté de pointe, sans sacrifier la sécurité ni la fidélité matérielle.
 
@@ -54,7 +57,19 @@ sequenceDiagram
 - **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à la limite constructeur.
 - **Optimization Safe-Sync** : Réduction de 90% du trafic réseau inutile ; le contrôleur ne parle que lors d'un vrai changement d'état.
 
+- **Optimization Safe-Sync** : Réduction de 90% du trafic réseau inutile ; le contrôleur ne parle que lors d'un vrai changement d'état.
+
 ---
+
+## 🏠 Compatibilité Home Assistant
+
+Ce projet est **nativement compatible** avec Home Assistant via l'intégration ESPHome.
+1.  **Auto-Découverte** : Une fois flashé et sur votre réseau, HA détectera automatiquement le spa.
+2.  **Entités** : Toutes les fonctions (Chauffe, Filtre, Bulles, Firewall, Température) remontent comme des entités standard.
+3.  **Zéro Config** : Contrairement à d'autres solutions, aucune modification de fichier YAML côté Home Assistant n'est requise.
+
+> [!TIP]
+> Si vous utilisez uniquement Home Assistant, vous pouvez passer `eedomus_enabled` à `false` dans votre fichier `secrets.yaml` pour désactiver les requêtes HTTP inutiles vers Eedomus.
 
 ## 🛠️ Installation & Démarrage
 
