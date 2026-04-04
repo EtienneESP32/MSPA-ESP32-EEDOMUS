@@ -9,6 +9,9 @@
 
 Bienvenue dans l'écosystème **MSPA-Controller**, la solution ultime pour transformer ton spa MSPA (Série D) en un objet connecté de pointe, sans sacrifier la sécurité ni la fidélité matérielle.
 
+![Interfaces Labo & Production](assets/images/ui_simulator.png)
+*Aperçu du Simulateur (gauche) et du Contrôleur (droite) avec le design Glassmorphism.*
+
 ---
 
 ## 🏗️ L'Architecture "One-Stop-Shop"
@@ -20,6 +23,9 @@ Le cerveau opérationnel. Placé entre le clavier et le moteur, il agit comme un
 - **Intégration Eedomus** : Synchronisation bidirectionnelle native (API HTTP).
 - **UART Firewall** : Verrouillage du clavier physique à distance.
 - **Sniper Engine** : Injection de commandes ultra-précise (latence < 100ms).
+
+![Montage MITM](assets/images/hardware_wiring_main.jpg)
+*Le contrôleur ESP32 intercalé entre le clavier et le moteur.*
 
 ### 2. 🧪 [Le Simulateur (Banc d'essai)](esphome/mspa-simulator.yaml)
 Une copie atomique du spa réel. Indispensable pour développer et tester tes scripts sans sortir au froid.
@@ -66,6 +72,10 @@ Ce projet est **nativement compatible** avec Home Assistant via l'intégration E
 
 > [!TIP]
 > Si vous utilisez uniquement Home Assistant, vous pouvez passer `eedomus_enabled` à `false` dans votre fichier `secrets.yaml` pour désactiver les requêtes HTTP inutiles vers Eedomus.
+
+### 📱 Interface Eedomus
+![Dashboard Eedomus](assets/images/ui_eedomus.png)
+*Exemple d'intégration sur le portail Eedomus.*
 
 ## 🛠️ Installation & Démarrage
 

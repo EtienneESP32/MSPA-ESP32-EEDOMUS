@@ -17,7 +17,14 @@ Ce document répertorie les composants matériels **testés et validés** pour l
 
 ## 💡 Détails Techniques
 
+### 0. Identification (Carte Mère SPA)
+![Carte Mère SPA](assets/images/mspa_motherboard.jpg)
+*L'intérieur du boîtier de contrôle du spa MSPA.*
+
 ### 1. Pourquoi des Level Shifters ?
+![Module de Conversion](assets/images/hardware_level_shifter.jpg)
+*Le convertisseur bidirectionnel servant de barrière de tension.*
+
 Le bus de données du spa MSPA fonctionne en **5V Logic**. L'ESP32, lui, fonctionne en **3.3V Logic**. 
 > [!WARNING]
 > Connecter l'UART du spa directement sur l'ESP32 sans ces convertisseurs peut **détruire votre microcontrôleur** ou causer des erreurs de communication. Les modules bidirectionnels à 4 canaux recommandés ici sont parfaits pour gérer les deux UART (TX/RX) en toute sécurité.
@@ -25,7 +32,12 @@ Le bus de données du spa MSPA fonctionne en **5V Logic**. L'ESP32, lui, fonctio
 ### 2. Le choix du boîtier
 Le boîtier YoiYee (95x55x23mm) est compact mais permet de loger confortablement l'ESP32 et les modules de conversion. Il est suffisant pour être placé à l'intérieur du bloc moteur ou dans une boîte de dérivation externe.
 
+![Montage Propre](assets/images/hardware_esp_level_shifter.jpg)
+*Exemple de montage : le convertisseur est soudé directement sur l'ESP32 pour économiser de la place.*
+
 ### 3. Connectique sans soudure (Propre)
+![Connecteurs JST-SM](assets/images/hardware_connector_jst.jpg)
+*Connecteurs standard 4 broches permettant une installation MITM "Plug-and-Play".*
 En utilisant les câbles JST SM 4-Pin, vous pouvez créer une "rallonge" ou une dérivation (T-Tap) qui se branche directement sur les prises d'origine du spa. Cela permet de retirer le système domotique sans laisser de trace si nécessaire.
 
 ---
