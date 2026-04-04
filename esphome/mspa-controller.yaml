@@ -1,8 +1,8 @@
-# Contrôleur MSPA – Version 6.3.5-STABLE (Firewall & Sync)
+# Contrôleur MSPA – Version 6.3.6-STABLE (Filter Alert & Sync)
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.5-STABLE"
+  mspa_version: "6.3.6-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -19,6 +19,7 @@ substitutions:
   periph_verrouillage: !secret eedomus_periph_verrouillage
   periph_consigne_temp: !secret eedomus_periph_consigne_temp
   periph_temp_eau: !secret eedomus_periph_temp_eau
+  periph_alerte_filtre: !secret eedomus_periph_alerte_filtre
 
 external_components:
   - source:
@@ -132,6 +133,12 @@ binary_sensor:
     id: filt_alert
     icon: "mdi:alert-decagram"
     device_class: problem
+    on_state:
+      then:
+        - script.execute:
+            id: push_eedomus
+            p_id: ${periph_alerte_filtre}
+            p_val: !lambda 'return x ? 100 : 0;'
 
 sensor:
   - platform: template
