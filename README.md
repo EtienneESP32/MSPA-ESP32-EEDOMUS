@@ -55,10 +55,6 @@ sequenceDiagram
 ### ✨ Pourquoi c'est différent ?
 - **Silk Filter** : L'interface utilisateur ne "devine" jamais l'état du spa. Elle attend la confirmation réelle venant du bit de retour de la pompe/chauffe pour s'allumer.
 - **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à la limite constructeur.
-- **Optimization Safe-Sync** : Réduction de 90% du trafic réseau inutile ; le contrôleur ne parle que lors d'un vrai changement d'état.
-
-- **Optimization Safe-Sync** : Réduction de 90% du trafic réseau inutile ; le contrôleur ne parle que lors d'un vrai changement d'état.
-
 ---
 
 ## 🏠 Compatibilité Home Assistant
@@ -73,8 +69,9 @@ Ce projet est **nativement compatible** avec Home Assistant via l'intégration E
 
 ## 🛠️ Installation & Démarrage
 
-1.  **Environnement** : Installe [ESPHome](https://esphome.io/) sur ton PC.
-2.  **Configuration** :
+1.  **Matériel** : Consultez la [Liste d'achat validée (BOM)](docs/hardware_bom.md) pour commander les bons composants (ESP32, convertisseurs de niveau, etc.).
+2.  **Environnement** : Installe [ESPHome](https://esphome.io/) sur ton PC.
+3.  **Configuration** :
     - Copie `esphome/secrets.yaml.example` vers `esphome/secrets.yaml`.
     - Remplis tes accès WiFi et tes IDs de périphériques Eedomus.
 3.  **Flashage** :
