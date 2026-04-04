@@ -69,7 +69,7 @@ Ce projet est **nativement compatible** avec Home Assistant via l'intégration E
 
 ## 🛠️ Installation & Démarrage
 
-1.  **Matériel** : Consultez la [Liste d'achat validée (BOM)](docs/hardware_bom.md) pour commander les bons composants (ESP32, convertisseurs de niveau, etc.).
+1.  **Matériel** : Consultez la [Liste d'achat validée (BOM)](docs/hardware_bom.md) et le [Schéma de câblage (Synoptique)](docs/hardware_schema.md) pour préparer votre montage.
 2.  **Environnement** : Installe [ESPHome](https://esphome.io/) sur ton PC.
 3.  **Configuration** :
     - Copie `esphome/secrets.yaml.example` vers `esphome/secrets.yaml`.
