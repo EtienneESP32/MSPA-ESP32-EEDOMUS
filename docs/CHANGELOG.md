@@ -1,6 +1,9 @@
 # Historique des changements (MSPA ESP32)
 
-### 2026-03-28 – Release Finale (v6.3.4-STABLE) – ACTUEL
+### 2026-03-28 – Audit & Diagnostic (v6.3.5-STABLE) – ACTUEL
+- **API Native ESPHome** : Activation du port API (6053) avec `reboot_timeout: 0s`. Permet le monitoring et les logs à distance sans risque de redémarrage cyclique.
+
+### 2026-03-28 – Release Finale (v6.3.4-STABLE)
 - **UART Firewall (Production)** : Filtrage sélectif actif. Blocage des commandes physiques en mode "Verrouillage". Heartbeat `0x0D` préservé.
 - **Miroir d'état (100% Natif)** : L'interface suit strictement le bus UART, pas de forcage fictif.
 - **Auto-Correction Sniper v2** : Ré-essais automatiques en cas de perte de trame.

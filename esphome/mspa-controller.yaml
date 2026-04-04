@@ -1,8 +1,8 @@
-# Contrôleur MSPA – Version 6.3.4-STABLE (Firewall & Sync)
+# Contrôleur MSPA – Version 6.3.5-STABLE (Firewall & Sync)
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.4-STABLE"
+  mspa_version: "6.3.5-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -72,6 +72,9 @@ http_request:
 
 ota:
   - platform: esphome
+
+api:
+  reboot_timeout: 0s
 
 logger:
   level: DEBUG

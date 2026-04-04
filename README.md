@@ -2,11 +2,11 @@
 
 Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (série D), avec pilotage domotique (eedomus), interface Web et **Firewall UART** intégré.
 
-## 🚀 État du Projet (v6.3.4-STABLE)
+## 🚀 État du Projet (v6.3.5-STABLE)
 
 Le projet est actuellement dans sa version la plus stable et aboutie, validée sur banc de test et en situation réelle.
 
-*   **Firmware Contrôleur** : [v6.3.4-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)
+*   **Firmware Contrôleur** : [v6.3.5-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)
 *   **Simulateur Labo** : [v1.6.0-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-simulator.yaml)
 
 ---
@@ -55,4 +55,4 @@ L'historique des recherches, des anciens prototypes et des études de risques pa
 - **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à 40°C.
 
 ---
-*Projet maintenu par Etienne - Stabilité Master validée le 28/03/2026.*
+*Projet maintenu par Etienne - Stabilité Master validée le 28/03/2026. Version 6.3.5-STABLE.*
