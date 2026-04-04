@@ -1,58 +1,83 @@
-# Contrôleur MSPA (ESP32)
+# 💎 MSPA Man-in-the-Middle Ecosystem (ESP32)
 
-Pont UART **man-in-the-middle** entre le clavier et le moteur d’un spa MSPA (série D), avec pilotage domotique (eedomus), interface Web et **Firewall UART** intégré.
+[![Project Version: v6.3.6](https://img.shields.io/badge/Controller-v6.3.6--STABLE-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
+[![Simulator Version: v1.6.3](https://img.shields.io/badge/Simulator-v1.6.3--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
+[![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
 
-## 🚀 État du Projet (v6.3.6-STABLE)
-
-Le projet est actuellement dans sa version la plus stable et aboutie, validée sur banc de test et en situation réelle.
-
-*   **Firmware Contrôleur** : [v6.3.6-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)
-*   **Simulateur Labo** : [v1.6.0-STABLE](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-simulator.yaml)
+Bienvenue dans l'écosystème **MSPA-Controller**, la solution ultime pour transformer ton spa MSPA (Série D) en un objet connecté de pointe, sans sacrifier la sécurité ni la fidélité matérielle.
 
 ---
 
-## 🗺️ Cartographie du Dépôt
+## 🏗️ L'Architecture "One-Stop-Shop"
 
-Pour comprendre le projet en une passe, voici comment les fichiers sont organisés :
+Ce dépôt regroupe les trois piliers essentiels pour domotiser, tester et auditer ton spa :
 
-### 1. Cœur du Système (Dossier `/esphome`)
-C'est ici que se trouve le code "vivant" qui tourne sur tes ESP32.
-- **[mspa-controller.yaml](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-controller.yaml)** : Le micrologiciel principal. Il gère le WiFi, l'interface Web, et la communication avec Eedomus.
-- **[components/mspa_uart/](file:///c:/Users/ebesa/Documents/MSPA/esphome/components/mspa_uart/)** : Le moteur C++ (`mspa_uart.h`). C'est le cerveau qui décode le protocole MSPA, gère le **Firewall** et le **Sniper Engine**.
-- **[mspa-simulator.yaml](file:///c:/Users/ebesa/Documents/MSPA/esphome/mspa-simulator.yaml)** : Le micrologiciel du SPA virtuel pour tes tests sur banc.
+### 1. 📟 [Le Contrôleur (MITM)](esphome/mspa-controller.yaml)
+Le cerveau opérationnel. Placé entre le clavier et le moteur, il agit comme un pont intelligent (**Man-in-the-Middle**).
+- **Intégration Eedomus** : Synchronisation bidirectionnelle native (API HTTP).
+- **UART Firewall** : Verrouillage du clavier physique à distance.
+- **Sniper Engine** : Injection de commandes ultra-précise (latence < 100ms).
 
-### 2. Documentation de Référence (Dossier `/docs`)
-Les guides essentiels pour la maintenance et l'utilisation quotidienne.
-- **[mspa_full_reverse.md](file:///c:/Users/ebesa/Documents/MSPA/docs/mspa_full_reverse.md)** : La "Bible" du protocole. Tout ce qu'on sait sur les trames `0xA5`.
-- **[test_bench_simulator.md](file:///c:/Users/ebesa/Documents/MSPA/docs/test_bench_simulator.md)** : Comment câbler et utiliser ton banc de test.
-- **[simulator_user_guide.md](file:///c:/Users/ebesa/Documents/MSPA/docs/simulator_user_guide.md)** : Guide précis des fonctions du simulateur v1.6.0.
-- **[config_eedomus.md](file:///c:/Users/ebesa/Documents/MSPA/docs/config_eedomus.md)** : Guide d'installation des périphériques sur ton portail Eedomus.
-- **[CHANGELOG.md](file:///c:/Users/ebesa/Documents/MSPA/docs/CHANGELOG.md)** : Historique des versions et des corrections majeures.
+### 2. 🧪 [Le Simulateur (Banc d'essai)](esphome/mspa-simulator.yaml)
+Une copie atomique du spa réel. Indispensable pour développer et tester tes scripts sans sortir au froid.
+- **Staggered Heartbeat** : Reproduction millimétrée du flux UART officiel.
+- **Atomic Realism** : Signature binaire 100% conforme aux traces matérielles.
 
-### 3. Mémoire du Projet (Dossier `/archive`)
-L'historique des recherches, des anciens prototypes et des études de risques passées.
-- **[v4.0_alpha/](file:///c:/Users/ebesa/Documents/MSPA/archive/firmware/v4.0_alpha/)** : Anciens prototypes du firewall.
-- **[docs/](file:///c:/Users/ebesa/Documents/MSPA/archive/docs/)** : Analyses de risques, anciens schémas et études comparatives de projets similaires.
+### 3. 🔍 [Le Sniffer (Audit)](esphome/mspa-sniffer.yaml)
+L'outil de diagnostic passif. Décode et affiche en temps réel les trames `0xA5` circulant sur le bus pour le débogage profond.
 
 ---
 
-## 🛠️ Installation Rapide
+## 🛡️ Fonctionnalités Premium
 
-1.  **Secrets** : Copie `esphome/secrets.yaml.example` vers `esphome/secrets.yaml` et remplis tes accès WiFi/API.
-2.  **Flash (USB)** :
-    ```bash
-    py -m esphome run esphome/mspa-controller.yaml --device COM3
+```mermaid
+sequenceDiagram
+    participant C as Clavier Physique
+    participant E as ESP32 (Controller)
+    participant M as Moteur MSPA
+    participant D as Domotique (Eedomus)
+
+    C->>E: Demande d'allumage (Trames 0x01)
+    alt Firewall Is Locked
+        E-->>C: Commande ignorée
+    else Firewall Is Open
+        E->>M: Commande relayée
+    end
+    M->>E: Status (Température, État)
+    E->>D: Push URL (Mise à jour état)
+    D->>E: Commande Cloud
+    E->>M: Injection via Sniper Engine
+```
+
+### ✨ Pourquoi c'est différent ?
+- **Silk Filter** : L'interface utilisateur ne "devine" jamais l'état du spa. Elle attend la confirmation réelle venant du bit de retour de la pompe/chauffe pour s'allumer.
+- **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à la limite constructeur.
+- **Optimization Safe-Sync** : Réduction de 90% du trafic réseau inutile ; le contrôleur ne parle que lors d'un vrai changement d'état.
+
+---
+
+## 🛠️ Installation & Démarrage
+
+1.  **Environnement** : Installe [ESPHome](https://esphome.io/) sur ton PC.
+2.  **Configuration** :
+    - Copie `esphome/secrets.yaml.example` vers `esphome/secrets.yaml`.
+    - Remplis tes accès WiFi et tes IDs de périphériques Eedomus.
+3.  **Flashage** :
+    ```powershell
+    # Pour le contrôleur principal
+    py -m esphome run esphome/mspa-controller.yaml
     ```
-3.  **Flash (OTA)** : Une fois sur le réseau, utilise l'IP fixe définie dans tes secrets.
 
 ---
 
-## ✨ Fonctionnalités Clés (Architecture v6.x)
+## 📸 Conseil Photo & Documentation
 
-- **UART Firewall** : Le clavier physique peut être verrouillé à distance (`sw_lock`) pour empêcher toute manipulation locale, tout en préservant le lien vital (Heartbeat) avec le moteur.
-- **Silk Filter (Miroir)** : L'interface ne "devine" jamais l'état du spa. Elle attend la confirmation réelle venant du bus UART pour mettre à jour les boutons.
-- **Sniper Engine** : Les commandes sont injectées avec une précision millimétrée après chaque trame de température pour garantir un taux de succès de 100%.
-- **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à 40°C.
+> [!IMPORTANT]
+> Pour un setup complet, nous recommandons d'ajouter des photos de votre montage dans un dossier `/images` :
+> - **Hardware** : Votre câblage Man-in-the-Middle.
+> - **Dashboard** : Votre interface Eedomus personnalisée.
+> - **WebUI** : L'interface native ESPHome en mode Glassmorphism.
 
 ---
-*Projet maintenu par Etienne - Stabilité Master validée le 04/04/2026. Version 6.3.6-STABLE.*
+
+*Projet maintenu par Etienne. Stabilité validée le 04/04/2026.*

@@ -1,12 +1,13 @@
-# Sniffer / Audit UART MSPA – FULL SPECTRUM
-# Version 3.7.3 (Sécurité & Filtrage)
-# Fix F1: Pont on_loop + Relay Prioritaire
-# Fix OTA: Limites de boucle (Respiration)
-# Fix Saturation: Log sur changement uniquement
+# MSPA UART Sniffer / Audit – "Silent Monitor"
+# Version: 1.0.0-STABLE
 
 esphome:
   name: mspa-uart-sniffer
-  friendly_name: MSPA UART Sniffer
+  friendly_name: MSPA-Sniffer-v1.0.0-STABLE
+  project:
+    name: "etienne.mspa-sniffer"
+    version: "1.0.0"
+
   on_loop:
     then:
       - lambda: |-
