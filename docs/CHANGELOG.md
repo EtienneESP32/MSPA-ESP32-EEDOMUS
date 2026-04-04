@@ -1,8 +1,11 @@
 # Historique des changements (MSPA ESP32)
 
-### 2026-04-04 – Alerte eedomus (v6.3.6-STABLE) – ACTUEL
-- **eedomus** : Implémentation de la remontée d'alerte automatique du filtre à changer (ID 3536562).
-- **Logique d'état** : Envoi de 100 (Alerte) et 0 (OK) vers le périphérique eedomus.
+### 2026-04-04 – Alerte eedomus & Master Sync (v6.3.6-STABLE) – ACTUEL
+- **eedomus** : Implémentation de la remontée d'alerte automatique du filtre (ID 3536562).
+- **Welcome Sync** : Script de synchronisation exhaustive (8 entités) au démarrage avec délai de 500ms pour éviter la surcharge.
+- **Sécurité** : Point d'accès `MSPA-RECOVERY` désormais protégé par mot de passe (via secrets).
+- **Logique d'état** : Harmonisation des noms d'entités pour une compatibilité 100% sans changer les réglages eedomus.
+- *Projet maintenu par Etienne - Stabilité Master validée le 04/04/2026 (Sync & Security OK). Version 6.3.6-STABLE.*
 
 ### 2026-03-28 – Audit & Diagnostic (v6.3.5-STABLE)
 - **API Native ESPHome** : Activation du port API (6053) avec `reboot_timeout: 0s`. Permet le monitoring et les logs à distance sans risque de redémarrage cyclique.

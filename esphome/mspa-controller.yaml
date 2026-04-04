@@ -12,6 +12,8 @@ substitutions:
   subnet: !secret subnet
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
+  ap_ssid: !secret ap_ssid
+  ap_password: !secret ap_password
   periph_filtration: !secret eedomus_periph_filtration
   periph_chauffage: !secret eedomus_periph_chauffage
   periph_bulles: !secret eedomus_periph_bulles
@@ -64,7 +66,8 @@ wifi:
         gateway: ${gateway}
         subnet: ${subnet}
   ap:
-    ssid: "MSPA-RECOVERY"
+    ssid: ${ap_ssid}
+    password: ${ap_password}
 
 http_request:
   useragent: esphome/mspa
@@ -111,6 +114,9 @@ globals:
     type: int
     initial_value: "0"
   - id: eedomus_reachable
+    type: bool
+    initial_value: "false"
+  - id: initial_sync_done
     type: bool
     initial_value: "false"
   - id: eedomus_warn_logged
@@ -259,6 +265,12 @@ number:
     min_value: 20
     max_value: 40
     step: 1.0
+    on_value:
+      then:
+        - script.execute:
+            id: push_temp_eedomus
+            p_id: ${periph_consigne_temp}
+            p_val: !lambda 'return x;'
     set_action:
       then:
         - lambda: |-
@@ -293,7 +305,12 @@ script:
             return url;
           on_response:
             then:
-              - lambda: 'id(eedomus_reachable) = true;'
+              - lambda: |-
+                  id(eedomus_reachable) = true;
+                  if (!id(initial_sync_done)) {
+                    id(initial_sync_done) = true;
+                    id(script_sync_all).execute();
+                  }
           on_error:
             then:
               - lambda: 'id(eedomus_reachable) = false;'
@@ -329,3 +346,24 @@ script:
                   char url[256];
                   sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
                   return url;
+
+  - id: script_sync_all
+    mode: single
+    then:
+      - logger.log: "Démarrage de la synchronisation initiale vers eedomus..."
+      - script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: !lambda 'return id(sw_f).state ? 100 : 0;' }
+      - delay: 500ms
+      - script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: !lambda 'return id(sw_h).state ? 100 : 0;' }
+      - delay: 500ms
+      - script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: !lambda 'return id(sw_u).state ? 100 : 0;' }
+      - delay: 500ms
+      - script.execute: { id: push_eedomus, p_id: ${periph_bulles}, p_val: !lambda 'return (id(sel_b).state == "Niveau1")?1:(id(sel_b).state == "Niveau2")?2:(id(sel_b).state == "Niveau3")?3:0;' }
+      - delay: 500ms
+      - script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: !lambda 'return id(sw_lock).state ? 100 : 0;' }
+      - delay: 500ms
+      - script.execute: { id: push_temp_eedomus, p_id: ${periph_consigne_temp}, p_val: !lambda 'return id(test_setpoint).state;' }
+      - delay: 500ms
+      - script.execute: { id: push_temp_eedomus, p_id: ${periph_temp_eau}, p_val: !lambda 'return id(cur_temp).state;' }
+      - delay: 500ms
+      - script.execute: { id: push_eedomus, p_id: ${periph_alerte_filtre}, p_val: !lambda 'return id(filt_alert).state ? 100 : 0;' }
+      - logger.log: "Synchronisation initiale terminée."
