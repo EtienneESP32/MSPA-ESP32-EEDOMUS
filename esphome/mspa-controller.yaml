@@ -351,19 +351,43 @@ script:
     mode: single
     then:
       - logger.log: "Démarrage de la synchronisation initiale vers eedomus..."
-      - script.execute: { id: push_eedomus, p_id: ${periph_filtration}, p_val: !lambda 'return id(sw_f).state ? 100 : 0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_filtration}
+          p_val: !lambda 'return id(sw_f).state ? 100 : 0;'
       - delay: 500ms
-      - script.execute: { id: push_eedomus, p_id: ${periph_chauffage}, p_val: !lambda 'return id(sw_h).state ? 100 : 0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_chauffage}
+          p_val: !lambda 'return id(sw_h).state ? 100 : 0;'
       - delay: 500ms
-      - script.execute: { id: push_eedomus, p_id: ${periph_uvc}, p_val: !lambda 'return id(sw_u).state ? 100 : 0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_uvc}
+          p_val: !lambda 'return id(sw_u).state ? 100 : 0;'
       - delay: 500ms
-      - script.execute: { id: push_eedomus, p_id: ${periph_bulles}, p_val: !lambda 'return (id(sel_b).state == "Niveau1")?1:(id(sel_b).state == "Niveau2")?2:(id(sel_b).state == "Niveau3")?3:0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_bulles}
+          p_val: !lambda 'return (id(sel_b).state == "Niveau1")?1:(id(sel_b).state == "Niveau2")?2:(id(sel_b).state == "Niveau3")?3:0;'
       - delay: 500ms
-      - script.execute: { id: push_eedomus, p_id: ${periph_verrouillage}, p_val: !lambda 'return id(sw_lock).state ? 100 : 0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_verrouillage}
+          p_val: !lambda 'return id(sw_lock).state ? 100 : 0;'
       - delay: 500ms
-      - script.execute: { id: push_temp_eedomus, p_id: ${periph_consigne_temp}, p_val: !lambda 'return id(test_setpoint).state;' }
+      - script.execute:
+          id: push_temp_eedomus
+          p_id: ${periph_consigne_temp}
+          p_val: !lambda 'return id(test_setpoint).state;'
       - delay: 500ms
-      - script.execute: { id: push_temp_eedomus, p_id: ${periph_temp_eau}, p_val: !lambda 'return id(cur_temp).state;' }
+      - script.execute:
+          id: push_temp_eedomus
+          p_id: ${periph_temp_eau}
+          p_val: !lambda 'return id(cur_temp).state;'
       - delay: 500ms
-      - script.execute: { id: push_eedomus, p_id: ${periph_alerte_filtre}, p_val: !lambda 'return id(filt_alert).state ? 100 : 0;' }
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_alerte_filtre}
+          p_val: !lambda 'return id(filt_alert).state ? 100 : 0;'
       - logger.log: "Synchronisation initiale terminée."

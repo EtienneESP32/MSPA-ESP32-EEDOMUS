@@ -1,10 +1,10 @@
 substitutions:
-  name: "mspa-sim-v1-6-2"
-  version: "1.6.2"
+  name: "mspa-sim-v1-6-3"
+  version: "1.6.3"
 
 esphome:
   name: ${name}
-  friendly_name: MSPA-Simulator-v${version}-STABLE
+  friendly_name: MSPA-Simulator-v${version}-ATOMIC
   project:
     name: "etienne.mspa-simulator"
     version: ${version}
@@ -54,10 +54,20 @@ esphome:
                         ESP_LOGD("SIM", "Commande BULLES reçue: %d", val);
                         id(sim_bubbles) = val;
                         id(script_update_bubbles_label).execute();
+                        // ACKNOWLEDGEMENT 1B (Conformité Événementielle)
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, val, s_val, (uint8_t)(0xA5+0x1B+val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
                      }
                      if (sid == 0x04) { 
                         ESP_LOGD("SIM", "Commande CONSIGNE reçue: %.1f°C", val/2.0f);
-                        id(sim_setpoint) = (uint8_t)(val / 2.0f); id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        id(sim_setpoint) = (uint8_t)(val / 2.0f); 
+                        id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        // ACKNOWLEDGEMENT 1B (Conformité Événementielle)
+                        uint8_t b_val = id(sim_bubbles);
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
                      }
                      if (sid == 0x06) { id(sim_temp_bus).publish_state(val / 2.0f); }
                    } else { id(sim_err_4b)++; }
@@ -235,13 +245,12 @@ interval:
             last_rel = id(sim_relay);
           }
 
-          // --- HEARTBEAT RÉALISTE (STAGGERED 1Hz) ---
+          // --- ATOMIC REALISM 1.6.3 (Strict trace conformity) ---
           if (id(sim_cycle) == 0) {
             uint8_t f08[4] = {0xA5, 0x08, id(sim_relay), (uint8_t)(0xA5+0x08+id(sim_relay))}; id(uart_mb).write_array(f08, 4);
           }
           if (id(sim_cycle) == 2) {
-            uint8_t b_val = id(sim_bubbles), s_val = (uint8_t)(id(sim_setpoint) - 30);
-            uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)}; id(uart_mb).write_array(f1B, 5);
+             // Silence 1B périodique (Atomic Realism)
           }
           if (id(sim_cycle) == 4) {
             uint8_t f06[4] = {0xA5, 0x06, (uint8_t)(id(sim_temp)*2.0f), (uint8_t)(0xA5+0x06+(uint8_t)(id(sim_temp)*2.0f))}; id(uart_mb).write_array(f06, 4);
@@ -359,4 +368,11 @@ number:
     min_value: 20
     max_value: 40
     step: 1.0
-    set_action: { lambda: id(sim_setpoint) = (uint8_t)x; }
+    set_action: 
+      lambda: |-
+        id(sim_setpoint) = (uint8_t)x;
+        // Event-based 1B : Feedback UI
+        uint8_t b_val = id(sim_bubbles);
+        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+        uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+        id(uart_mb).write_array(f1B, 5);
