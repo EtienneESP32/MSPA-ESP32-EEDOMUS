@@ -46,7 +46,7 @@ sequenceDiagram
     participant M as Moteur MSPA
     participant D as Domotique (Eedomus)
 
-    C->>E: Demande d'allumage (Trames 0x01)
+    C->>E: "Demande d'allumage (Trames 0x01)"
     alt Firewall Is Locked
         E-->>C: Commande ignorée
     else Firewall Is Open

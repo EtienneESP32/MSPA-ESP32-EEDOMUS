@@ -11,17 +11,17 @@ L'ESP32 est placé sur le bus de communication d'origine. Il intercepte les tram
 ```mermaid
 graph LR
     subgraph "Boîtier d'Origine (Spa)"
-        M[Moteur / Carte Mère]
+        M["Moteur / Carte Mère"]
     end
 
     subgraph "Boîtier MSPA-Controller (DIY)"
-        LS1[Level Shifter 5V/3.3V]
-        ESP[ESP32 DevKit]
-        LS2[Level Shifter 3.3V/5V]
+        LS1["Level Shifter 5V/3.3V"]
+        ESP["ESP32 DevKit"]
+        LS2["Level Shifter 3.3V/5V"]
     end
 
     subgraph "Interface Utilisateur"
-        K[Clavier Physique]
+        K["Clavier Physique"]
     end
 
     M <--> LS1

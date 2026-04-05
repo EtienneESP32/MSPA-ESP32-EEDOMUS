@@ -49,14 +49,14 @@ stateDiagram-v2
     
     state IDLE {
         direction lr
-        note: Relais 08=00 / Voyant Prêt (1A:08)
+        note: "Relais 08=00 / Voyant Prêt (1A:08)"
     }
 
     IDLE --> TESTING : Commande (Filtre/Chauffe/UVC)
     
     state TESTING {
         direction lr
-        note: Relais 08=03 / Voyant CLIGNOTE (1A)
+        note: "Relais 08=03 / Voyant CLIGNOTE (1A)"
         [*] --> CheckFlow : Vérification Flux
         CheckFlow --> CheckTemp : Flux OK
         CheckTemp --> [*] : Températ. stable
@@ -66,7 +66,7 @@ stateDiagram-v2
     
     state RUNNING {
         direction lr
-        note: Relais 08=03 / Voyant FIXE (1A)
+        note: "Relais 08=03 / Voyant FIXE (1A)"
     }
 
     RUNNING --> COOLDOWN : Commande OFF (ou Cible atteinte)
@@ -74,15 +74,15 @@ stateDiagram-v2
     
     state COOLDOWN {
         direction lr
-        note: Relais 08=03 / Voyant OFF (1A:08)
-        PostCirculation : Circulation de refroidissement
+        note: "Relais 08=03 / Voyant OFF (1A:08)"
+        PostCirculation : "Circulation de refroidissement"
     }
 
     COOLDOWN --> IDLE : Fin tempo (~10s)
     
     state ALARM {
         direction lr
-        note: Erreur (F1, etc.) / Voyants Spécifiques
+        note: "Erreur (F1, etc.) / Voyants Spécifiques"
     }
     
     ANY --> ALARM : Capteur HS / Surchauffe
@@ -97,11 +97,11 @@ sequenceDiagram
     participant B as Bus UART (Trame 08/1A)
     participant M as Moteur (Physique)
 
-    U->>B: [T=0s] Commande Chauffe (Consigne > Réelle)
-    B->>M: [T=0.1s] ID 08 passe à 03 (Moteur démarre)
-    B-->>U: [T=1s] ID 1A Bit 1 CLIGNOTE (Test en cours)
-    Note over B: Phase de test (10 sec)
-    B-->>U: [T=11s] ID 1A Bit 1 devient FIXE (Chauffe confirmée)
+    U->>B: "[T=0s] Commande Chauffe (Consigne > Réelle)"
+    B->>M: "[T=0.1s] ID 08 passe à 03 (Moteur démarre)"
+    B-->>U: "[T=1s] ID 1A Bit 1 CLIGNOTE (Test en cours)"
+    Note over B: "Phase de test (10 sec)"
+    B-->>U: "[T=11s] ID 1A Bit 1 devient FIXE (Chauffe confirmée)"
 ```
 
 ---
