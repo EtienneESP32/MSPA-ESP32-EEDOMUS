@@ -102,4 +102,12 @@ Ce projet est **nativement compatible** avec Home Assistant via l'intégration E
 
 ---
 
+## 🆘 Support & Dépannage
+
+Un problème ? Une erreur `4b` ou `5b` dans les logs ?
+- Consultez le [**Guide de Dépannage**](docs/troubleshooting.md) pour les solutions aux problèmes courants (Câblage, WiFi, Alimentation).
+- Pour toute question technique, n'hésitez pas à ouvrir une **Issue** sur ce dépôt.
+
+---
+
 *Projet maintenu par Etienne. Stabilité validée le 04/04/2026.*
