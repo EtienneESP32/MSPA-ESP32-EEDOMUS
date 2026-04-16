@@ -102,6 +102,16 @@ Ce projet est **nativement compatible** avec Home Assistant via l'intégration E
 
 ---
 
+## 💬 Communauté & Discussion
+
+Ce projet est discuté sur le **forum officiel eedomus** :
+
+> 🔗 [Topic eedomus — MSpa Tribeca ESP32 MITM](https://forum.eedomus.com/viewtopic.php?f=16&t=12955&p=115447&hilit=mspa#p115447)
+
+N'hésite pas à y poster tes retours, questions ou améliorations. La discussion est ouverte à tous les propriétaires de spas MSpa (Série D).
+
+---
+
 ## 🆘 Support & Dépannage
 
 Un problème ? Une erreur `4b` ou `5b` dans les logs ?
