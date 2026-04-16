@@ -4,7 +4,7 @@ L'utilisation d'un second ESP32 pour simuler le SPA est la **meilleure garantie 
 
 ## 1. Schéma de Câblage (Banc de Test)
 
-| ESP32 Contrôleur (v6.3.4) | ESP32 Simulateur (v1.6.0) | Rôle |
+| ESP32 Contrôleur (v6.3.7) | ESP32 Simulateur (v1.6.9) | Rôle |
 | :--- | :--- | :--- |
 | **GPIO16 (RX_SPA)** | **GPIO17 (TX_MB)** | Simulation Carte Mère |
 | **GPIO17 (TX_SPA)** | **GPIO16 (RX_MB)** | Réception ordres vers MB |
@@ -12,14 +12,14 @@ L'utilisation d'un second ESP32 pour simuler le SPA est la **meilleure garantie 
 | **GPIO13 (TX_KBD)** | **GPIO14 (RX_KBD)** | Réception ordres vers Clavier |
 | **GND** | **GND** | Masse commune (Obligatoire) |
 
-## 2. Logique du Simulateur (v1.6.0 Stable)
+## 2. Logique du Simulateur (v1.6.9 ATOMIC)
 
 Le simulateur reproduit fidèlement le comportement temporel du SPA :
 1.  **Boucle Carte Mère** : Envoie `A5 06`, `A5 08`, `A5 1A`, `A5 1B`, `A5 12` toutes les 100ms.
 2.  **Boucle Clavier** : Envoie `A5 0D` (Heartbeat) toutes les 100ms.
 3.  **Réaction** : Si le simulateur reçoit `A5 01 01` (Cmd Chauffe), il déclenche ses scripts internes (Phase 1, Phase 2) et modifie les trames de retour.
 
-## 3. Protocole de Validation v6.3.4 (Firewall)
+## 3. Protocole de Validation v6.3.7 (Firewall & Reset)
 
 Avant déploiement sur le SPA réel, le banc valide :
 1.  **Vérification Firewall** : Activer `sw_lock` sur le contrôleur. Actionner les boutons "ACTION" sur le simulateur. Vérifier que les commandes sont **interceptées et loguées** sans atteindre le bus principal.

@@ -19,14 +19,13 @@ Pour connaître le slug exact exposé par ton firmware, le plus fiable est d’o
 |------------------------|-----------------------------|--------------------|--------------|
 | Filtration             | Filtration                  | sw_f               | Liste ON/OFF |
 | Chauffage              | Chauffage                   | sw_h               | Liste ON/OFF |
-| Mode bulles            | Mode bulles                 | sel_b              | Liste Arret, Niveau1/2/3 |
-| UVC                    | UVC                         | sw_uvc             | Liste ON/OFF |
-| Verrouillage clavier   | Verrouillage clavier        | lock               | Liste ON/OFF |
-| Température consigne   | Temperature consigne        | consigne_setpoint  | Liste 25/30/35/36/37/38 °C |
-| Température eau        | Temperature eau             | cur_temp           | Nombre °C |
-| État réel filtration   | Etat reel filtration        | f_st               | (push seul, lecture) |
-| État réel chauffage    | Etat reel chauffage         | h_st               | (push seul, lecture) |
-| État réel bulles       | Etat reel bulles            | b_st               | (push seul, lecture) |
+| Mode bulles            | Mode Bulles                 | sel_b              | Liste Arret, Niveau1/2/3 |
+| UVC                    | UVC                         | sw_u               | Liste ON/OFF |
+| Verrouillage clavier   | Verrouillage Clavier        | sw_lock            | Liste ON/OFF |
+| Température consigne   | Temperature Consigne        | test_setpoint      | Liste 25/30/35/36/37/38 °C |
+| Température eau        | Temperature Eau             | cur_temp           | Nombre °C |
+| Alerte filtre          | Alerte Changement Filtre    | filt_alert         | (push seul, lecture) |
+| Reset alerte filtre    | Action Reset Alerte         | sw_reset_filt      | Actionneur HTTP |
 
 **IDs eedomus** : le code lit les IDs depuis `esphome/secrets.yaml` uniquement (clés `eedomus_periph_*`). Voir `esphome/secrets.yaml.example`. Ne jamais committer `secrets.yaml`.
 
@@ -68,6 +67,9 @@ Les slugs ci‑dessous correspondent au `name` normalisé (minuscules + `_`). Si
 | Verrouillage clavier    | verrouillage_clavier | `http://<IP_ESP>/switch/verrouillage_clavier/turn_on` ou `turn_off` |
 | Mode bulles             | mode_bulles | `http://<IP_ESP>/select/mode_bulles/set?option=Arret` (ou Niveau1, Niveau2, Niveau3). **Important** : valeurs exactes (Arret sans accent, Niveau1/2/3 sans espace). |
 | Temperature consigne    | temperature_consigne | `http://<IP_ESP>/number/temperature_consigne/set?value=38` |
+| **Reset Alerte Filtre** | action_reset_alerte | `http://<IP_ESP>/switch/action_reset_alerte/turn_on` |
+
+> ℹ️ **Reset Alerte Filtre** : configurer cette URL dans l'état **0** (Normal) du périphérique Eedomus "Alerte Changement Filtre". Quand tu repasses l'état à 0 manuellement, Eedomus appelle l'ESP qui lance la rafale de Reset (4s) vers le SPA.
 
 **IP** : utiliser l’IP de l’ESP (fixe via `secrets.yaml` + `manual_ip`, ou DHCP). Ne pas mettre d’IP en dur dans le dépôt.
 

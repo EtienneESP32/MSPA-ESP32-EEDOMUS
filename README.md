@@ -110,4 +110,4 @@ Un problème ? Une erreur `4b` ou `5b` dans les logs ?
 
 ---
 
-*Projet maintenu par Etienne. Stabilité validée le 04/04/2026.*
+*Projet maintenu par Etienne. Stabilité validée le 16/04/2026 (Controller v6.3.7 / Simulator v1.6.9).*
