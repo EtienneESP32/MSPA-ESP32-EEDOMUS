@@ -5,9 +5,9 @@
 [![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
 [![Home Assistant: Ready](https://img.shields.io/badge/Home%20Assistant-Compatible-orange?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
 
-> **Keywords**: `MSPA`, `ESP32`, `ESPHome`, `Home Assistant`, `Eedomus`, `Man-in-the-Middle`, `UART`, `Smart-Home`, `DIY-Spa`
+> **Keywords**: `MSPA`, `Tribeca`, `ESP32`, `ESPHome`, `Home Assistant`, `Eedomus`, `Man-in-the-Middle`, `UART`, `Smart-Home`, `DIY-Spa`
 
-Bienvenue dans l'écosystème **MSPA-Controller**, la solution ultime pour transformer ton spa MSPA (Série D) en un objet connecté de pointe, sans sacrifier la sécurité ni la fidélité matérielle.
+Bienvenue dans l'écosystème **MSPA-Controller**, la solution ultime pour transformer ton spa **MSpa Tribeca (Série D)** en un objet connecté de pointe, sans sacrifier la sécurité ni la fidélité matérielle.
 
 ![Interfaces Labo & Production](assets/images/ui_simulator.png)
 *Aperçu du Simulateur (gauche) et du Contrôleur (droite) avec le design Glassmorphism.*

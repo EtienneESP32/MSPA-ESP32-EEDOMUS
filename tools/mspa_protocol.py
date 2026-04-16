@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Outil de test du protocole MSPA (Série D).
+Outil de test du protocole MSPA Tribeca (Série D).
 UART 9600 8N1, trames 4 octets : 0xA5 | ID | DATA | Checksum.
 Checksum = (0xA5 + ID + DATA) & 0xFF.
 
