@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-6-8"
-  version: "1.6.8"
+  name: "mspa-sim-v1-6-9"
+  version: "1.6.9"
 
 esphome:
   name: ${name}
@@ -72,6 +72,28 @@ esphome:
                            id(sim_last_cmd_time) = now;
                         }
                      }
+                     // --- 3. COMMANDES ÉVÉNEMENTIELLES (Sans Anti-Vibration) ---
+                     if (sid == 0x03) { // BUBBLES
+                        ESP_LOGD("SIM", "Commande BULLES reçue: %d", val);
+                        id(sim_bubbles) = val;
+                        id(script_update_bubbles_label).execute();
+                        // ACK 1B (Conformité Événementielle)
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, val, s_val, (uint8_t)(0xA5+0x1B+val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
+                     }
+                     if (sid == 0x04) { // CONSIGNE
+                        ESP_LOGD("SIM", "Commande CONSIGNE reçue: %.1f°C", val/2.0f);
+                        id(sim_setpoint) = (uint8_t)(val / 2.0f); 
+                        id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        // ACK 1B (Conformité Événementielle)
+                        uint8_t b_val = id(sim_bubbles);
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
+                     }
+                     if (sid == 0x06) { id(sim_temp_bus).publish_state(val / 2.0f); }
+
                    } else { id(sim_err_4b)++; }
                 }
                 else if (target_len == 5) {
