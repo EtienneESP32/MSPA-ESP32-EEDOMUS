@@ -1,6 +1,12 @@
 # Historique des changements (MSPA ESP32)
 
-### 2026-04-04 – Alerte eedomus & Master Sync (v6.3.6-STABLE) – ACTUEL
+### 2026-04-16 – Filter Reset & Sync Optimization (Controller v6.3.7 / Simulator v1.6.9)
+- **Controller (Filter Reset)** : Création d'un bouton dédié "Action Reset Alerte" qui envoie une rafale de 4 secondes pour acquitter l'alerte de changement de filtre à distance.
+- **Simulator (v1.6.9)** : Découplage de la détection d'appui long de la barrière anti-vibration (500ms) pour permettre la capture haute fréquence des trames de reset.
+- **Protocole** : Passage de la méthode `inject_cmd` en public dans `mspa_uart.h` pour permettre l'appel direct depuis le YAML.
+- **Correction** : Rétablissement de la synchronisation de la consigne de température dans la v1.6.9.
+
+### 2026-04-04 – Alerte eedomus & Master Sync (v6.3.6-STABLE)
 - **eedomus** : Implémentation de la remontée d'alerte automatique du filtre (ID 3536562).
 - **Welcome Sync** : Script de synchronisation exhaustive (8 entités) au démarrage avec délai de 500ms pour éviter la surcharge.
 - **Sécurité** : Point d'accès `MSPA-RECOVERY` désormais protégé par mot de passe (via secrets).

@@ -1,7 +1,7 @@
 # 💎 MSPA Man-in-the-Middle Ecosystem (ESP32)
 
-[![Project Version: v6.3.6](https://img.shields.io/badge/Controller-v6.3.6--STABLE-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
-[![Simulator Version: v1.6.3](https://img.shields.io/badge/Simulator-v1.6.3--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
+[![Project Version: v6.3.7](https://img.shields.io/badge/Controller-v6.3.7--STABLE-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
+[![Simulator Version: v1.6.9](https://img.shields.io/badge/Simulator-v1.6.9--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
 [![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
 [![Home Assistant: Ready](https://img.shields.io/badge/Home%20Assistant-Compatible-orange?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
 
