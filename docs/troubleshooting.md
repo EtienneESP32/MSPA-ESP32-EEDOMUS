@@ -30,8 +30,10 @@ J'ai intégré des compteurs de diagnostic dans le firmware pour identifier les 
 *   **Solution** : L'ESP32 va créer son propre réseau WiFi de secours (nommé `mspa-controller` ou similaire). Connectez-vous dessus avec un smartphone pour accéder au **Captive Portal** et reconfigurer vos accès.
 
 ### L'ESP32 redémarre tout seul (Bootloop)
-*   **Cause** : "Brownout" (chute de tension). Le 5V fourni par le spa peut chuter lors du démarrage du WiFi, faisant "tousser" l'ESP32.
-*   **Solution** : Ajoutez un condensateur (ex: 100µF ou 470µF) entre les broches **5V** et **GND** de votre ESP32 pour lisser le courant.
+*   **Cause 1 : "Brownout"** (chute de tension). Le 5V fourni par le spa peut chuter lors du démarrage du WiFi, faisant "tousser" l'ESP32.
+*   **Solution 1** : Ajoutez un condensateur (ex: 100µF ou 470µF) entre les broches **5V** et **GND** de votre ESP32 pour lisser le courant.
+*   **Cause 2 : Résolution DNS (IP Statique)**. Si vous utilisez `manual_ip` sans définir de serveur DNS (`dns1`), la pile réseau lwIP peut geler le processeur en tentant de joindre les serveurs de temps (SNTP) ou eedomus, provoquant un reboot Watchdog après ~20-30s.
+*   **Solution 2** : Vérifiez que `dns1: ${gateway}` (l'IP de votre routeur) est bien présent dans votre configuration WiFi.
 
 ---
 

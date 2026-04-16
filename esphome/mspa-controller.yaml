@@ -2,7 +2,7 @@
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.8-STABLE"
+  mspa_version: "6.3.10-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -65,6 +65,7 @@ wifi:
         static_ip: ${static_ip}
         gateway: ${gateway}
         subnet: ${subnet}
+        dns1: ${gateway} # INDISPENSABLE : Évite timeouts SNTP/DNS et reboots Watchdog (v6.3.10-DIAG)
   ap:
     ssid: ${ap_ssid}
     password: ${ap_password}
