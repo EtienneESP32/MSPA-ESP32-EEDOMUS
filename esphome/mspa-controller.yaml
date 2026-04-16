@@ -2,7 +2,7 @@
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.7-STABLE"
+  mspa_version: "6.3.8-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -77,6 +77,23 @@ http_request:
 ota:
   - platform: esphome
 
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Europe/Paris"
+    servers: ["pool.ntp.org", "time.cloudflare.com"]
+    on_time_sync:
+      then:
+        - lambda: |-
+            // Capture la date/heure du boot (une seule fois)
+            if (id(boot_time_str) == std::string("-")) {
+              auto t = id(sntp_time).now();
+              char buf[32];
+              t.strftime(buf, sizeof(buf), "%d/%m/%Y %H:%M:%S");
+              id(boot_time_str) = std::string(buf);
+              id(txt_boot_time).publish_state(id(boot_time_str));
+            }
+
 api:
   reboot_timeout: 0s
 
@@ -134,6 +151,9 @@ globals:
   - id: last_consigne_push_time_ms
     type: uint32_t
     initial_value: "0"
+  - id: boot_time_str
+    type: std::string
+    initial_value: '"-"'
 
 binary_sensor:
   - platform: template
@@ -165,6 +185,27 @@ sensor:
               id(last_temp_push_time_ms) = now;
               id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
             }
+
+text_sensor:
+  - platform: template
+    name: "\U0001F7E2 D\u00e9marr\u00e9 le"
+    id: txt_boot_time
+    icon: "mdi:calendar-clock"
+    update_interval: never
+  - platform: template
+    name: "\u23F1 Uptime"
+    id: txt_uptime
+    icon: "mdi:timer-outline"
+    update_interval: 60s
+    lambda: |-
+      uint32_t s = millis() / 1000;
+      uint32_t j = s / 86400; s %= 86400;
+      uint32_t h = s / 3600;  s %= 3600;
+      uint32_t m = s / 60;    s %= 60;
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%dd %02dh %02dm %02ds", j, h, m, s);
+      return std::string(buf);
+
 
 # UI MIROIR : L'interface suit le bus (v5.0.0)
 switch:

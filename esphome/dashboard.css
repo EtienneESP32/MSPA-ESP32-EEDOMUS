@@ -73,3 +73,11 @@ h1, h2 {
     border-radius: 12px !important;
   }
 }
+
+/* Uptime & Boot Time : style discret en haut de leur section */
+.text-sensor-value {
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  color: var(--text-muted) !important;
+  letter-spacing: 0.03em;
+}
