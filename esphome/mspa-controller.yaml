@@ -188,12 +188,12 @@ sensor:
 
 text_sensor:
   - platform: template
-    name: "\U0001F7E2 D\u00e9marr\u00e9 le"
+    name: "Demarre le"
     id: txt_boot_time
     icon: "mdi:calendar-clock"
     update_interval: never
   - platform: template
-    name: "\u23F1 Uptime"
+    name: "Uptime"
     id: txt_uptime
     icon: "mdi:timer-outline"
     update_interval: 60s
