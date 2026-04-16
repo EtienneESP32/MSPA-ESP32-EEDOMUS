@@ -27,8 +27,8 @@ Si `eedomus_host` reste en placeholder, les logs afficheront **Error parse url h
 
 | Clé | Fichier(s) | Usage |
 |-----|-------------|--------|
-| `wifi_ssid` | mspa-controller.yaml, mspa-uart-sniffer.yaml | SSID du réseau Wi‑Fi |
-| `wifi_password` | mspa-controller.yaml, mspa-uart-sniffer.yaml | Mot de passe Wi‑Fi |
+| `wifi_ssid` | mspa-controller.yaml, mspa-sniffer.yaml | SSID du réseau Wi‑Fi |
+| `wifi_password` | mspa-controller.yaml, mspa-sniffer.yaml | Mot de passe Wi‑Fi |
 | `ap_ssid` | mspa-controller.yaml | SSID du point d’accès de secours (AP) |
 | `ap_password` | mspa-controller.yaml | Mot de passe du réseau de secours (AP MSPA-RECOVERY) |
 | `eedomus_enabled` | mspa-controller.yaml | `"true"` ou `"false"` – activer/désactiver eedomus |
@@ -42,6 +42,7 @@ Si `eedomus_host` reste en placeholder, les logs afficheront **Error parse url h
 | `eedomus_periph_verrouillage` | mspa-controller.yaml | ID du périphérique eedomus « Verrouillage » |
 | `eedomus_periph_consigne_temp` | mspa-controller.yaml | ID du périphérique eedomus « Consigne température » |
 | `eedomus_periph_temp_eau` | mspa-controller.yaml | ID du périphérique eedomus « Température eau » |
+| `eedomus_periph_alerte_filtre` | mspa-controller.yaml | ID du périphérique eedomus « Alerte Changement Filtre » |
 
 **Optionnel (IP fixe)** : si tu ajoutes `manual_ip` dans le WiFi du contrôleur, tu peux définir dans `secrets.yaml` les clés `static_ip`, `gateway`, `subnet` (voir la fin de `secrets.yaml.example`).
 
@@ -67,7 +68,7 @@ Pour retrouver un `secrets.yaml` perdu :
   - Lignes 100–102 : `wifi_ssid`, `wifi_password`, `ap_ssid`.  
   - Les URLs eedomus (scripts) utilisent `eedomus_host`, `eedomus_api_user`, `eedomus_api_secret` et les `${periph_*}` (qui viennent des secrets).
 
-- **mspa-uart-sniffer.yaml**  
+- **mspa-sniffer.yaml**  
   - Lignes 19–20 : `wifi_ssid`, `wifi_password` uniquement.  
   - L’AP du sniffer a un SSID en dur (`MSPA-SNIFFER-RECOVERY`), pas de secret.
 
