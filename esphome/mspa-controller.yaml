@@ -1,8 +1,8 @@
-# Contrôleur MSPA – Version 6.3.6-STABLE (Filter Alert & Sync)
+# Contrôleur MSPA – Version 6.3.7-STABLE (Filter Alert & Reset)
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.6-STABLE"
+  mspa_version: "6.3.7-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -241,6 +241,16 @@ switch:
           p_id: ${periph_verrouillage}
           p_val: 0
 
+  - platform: template
+    name: "Action Reset Alerte"
+    id: sw_reset_filt
+    icon: "mdi:filter-remove"
+    optimistic: false
+    turn_on_action:
+      - script.execute: script_reset_burst
+    turn_off_action:
+      - script.stop: script_reset_burst
+
 select:
   - platform: template
     name: "Mode Bulles"
@@ -391,3 +401,19 @@ script:
           p_id: ${periph_alerte_filtre}
           p_val: !lambda 'return id(filt_alert).state ? 100 : 0;'
       - logger.log: "Synchronisation initiale terminée."
+
+  - id: script_reset_burst
+    mode: restart
+    then:
+      - switch.template.publish:
+          id: sw_reset_filt
+          state: ON
+      - repeat:
+          count: 40
+          then:
+            - lambda: 'id(mspa_logic)->inject_cmd(0x02, 0x01);'
+            - delay: 100ms
+      - switch.template.publish:
+          id: sw_reset_filt
+          state: OFF
+      - logger.log: "Rafale de Reset terminée (4.0s)"

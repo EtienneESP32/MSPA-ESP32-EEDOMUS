@@ -64,6 +64,11 @@ public:
     inject_cmd(0x03, level);
   }
   void set_lock(bool mode) { lock_ = mode; }
+  void inject_cmd(uint8_t id, uint8_t val) {
+    uint8_t b[4] = {0xA5, id, val, (uint8_t)(0xA5 + id + val)};
+    uart_spa_->write_array(b, 4);
+    ESP_LOGI(TAG, "UI Pulse Sent: ID=0x%02X VAL=0x%02X", id, val);
+  }
 
   void loop() override {
     while (uart_kbd_->available()) {
@@ -83,7 +88,8 @@ public:
     uint32_t now = millis();
     // MIROIR STABLE (Silk Filter)
     // MIROIR STABLE (Silk Filter) - Hybride (Icone 1A + Relais 08)
-    bool f_active = (last_on_f_ > 0 && (now - last_on_f_ < 1500)) && physical_f_on_;
+    bool f_active =
+        (last_on_f_ > 0 && (now - last_on_f_ < 1500)) && physical_f_on_;
     if (f_active != real_f_) {
       real_f_ = f_active;
       target_f_ = real_f_;
@@ -286,11 +292,7 @@ protected:
     }
   }
 
-  void inject_cmd(uint8_t id, uint8_t val) {
-    uint8_t b[4] = {0xA5, id, val, (uint8_t)(0xA5 + id + val)};
-    uart_spa_->write_array(b, 4);
-    ESP_LOGI(TAG, "UI Pulse Sent: ID=0x%02X VAL=0x%02X", id, val);
-  }
+
 };
 
 } // namespace mspa
