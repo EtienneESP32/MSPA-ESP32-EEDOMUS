@@ -6,20 +6,27 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
+#include <deque>
+#include <functional>
 
 namespace esphome {
 namespace mspa {
 
 static const char *TAG = "mspa_uart";
 
+struct EedomusRequest {
+  int periph_id;
+  float value;
+  bool is_float;
+};
+
 class MSPAUartComponent : public esphome::Component {
-public:
-  MSPAUartComponent(uart::UARTComponent *uart_spa,
-                    uart::UARTComponent *uart_kbd)
+ public:
+  MSPAUartComponent(uart::UARTComponent *uart_spa, uart::UARTComponent *uart_kbd)
       : uart_spa_(uart_spa), uart_kbd_(uart_kbd) {}
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA UART v6.3.2 'State Sync' initialized");
+    ESP_LOGI(TAG, "MSPA UART v6.7.4-HERITAGE initialized");
     kbd_idx_ = 0;
     spa_idx_ = 0;
     memset(kbd_buf_, 0, 10);
@@ -41,33 +48,60 @@ public:
   void set_filter_alert_sensor(binary_sensor::BinarySensor *s) {
     filter_alert_sensor_ = s;
   }
+  void set_link_sensor(binary_sensor::BinarySensor *s) { link_sensor_ = s; }
+  void set_kbd_link_sensor(binary_sensor::BinarySensor *s) { kbd_link_sensor_ = s; }
+  void set_reporter_callback(std::function<void(int, float, bool)> f) { reporter_callback_ = f; }
+  void set_http_busy(bool busy) { http_busy_ = busy; }
 
   // --- ACTIONS PAR CIBLES ---
   void control_filtration(bool active) {
     target_f_ = active;
     retry_f_ = 3;
-    inject_cmd(0x02, active ? 0x01 : 0x00);
+    check_target(target_f_, real_f_, retry_f_, 0x02, f_switch_);
   }
   void control_heating(bool active) {
     target_h_ = active;
     retry_h_ = 3;
-    inject_cmd(0x01, active ? 0x01 : 0x00);
+    check_target(target_h_, real_h_, retry_h_, 0x01, h_switch_);
   }
   void control_uvc(bool active) {
     target_u_ = active;
     retry_u_ = 3;
-    inject_cmd(0x19, active ? 0x01 : 0x00);
+    check_target(target_u_, real_u_, retry_u_, 0x19, u_switch_);
   }
   void control_bubbles(uint8_t level) {
     target_b_ = level;
     retry_b_ = 3;
-    inject_cmd(0x03, level);
+    if (target_b_ != real_b_) {
+        retry_b_--;
+        inject_cmd(0x03, target_b_);
+    }
   }
   void set_lock(bool mode) { lock_ = mode; }
   void inject_cmd(uint8_t id, uint8_t val) {
     uint8_t b[4] = {0xA5, id, val, (uint8_t)(0xA5 + id + val)};
     uart_spa_->write_array(b, 4);
     ESP_LOGI(TAG, "UI Pulse Sent: ID=0x%02X VAL=0x%02X", id, val);
+  }
+
+  // --- EEDOMUS ASYNC QUEUE ---
+  void register_network_command() { last_network_cmd_ms_ = millis(); }
+  bool can_report() { return (millis() - last_network_cmd_ms_ > 5000); }
+  float get_current_temp() { return current_temp_internal_; }
+  bool is_network_locked(uint32_t ms) { return (millis() - last_network_cmd_ms_ < ms); }
+
+  void enqueue_eedomus(int periph_id, float value, bool is_float = false, bool priority = false) {
+    if (eedomus_queue_.size() > 10) {
+      ESP_LOGW(TAG, "Queue Full (10), dropping oldest message");
+      eedomus_queue_.pop_back();
+    }
+    if (priority) {
+      eedomus_queue_.push_front({periph_id, value, is_float});
+      ESP_LOGD(TAG, "Queue Priority++ : ID=%d, Val=%.1f (Taille=%d)", periph_id, value, (int)eedomus_queue_.size());
+    } else {
+      eedomus_queue_.push_back({periph_id, value, is_float});
+      ESP_LOGD(TAG, "Queue++ : ID=%d, Val=%.1f (Taille=%d)", periph_id, value, (int)eedomus_queue_.size());
+    }
   }
 
   void loop() override {
@@ -109,9 +143,38 @@ public:
       }
     }
 
-    if (now - last_watchdog_ > 2500) {
+    if (now - last_watchdog_ > 1500) {
       last_watchdog_ = now;
       run_watchdog();
+    }
+
+    // GESTION LIENS (Heartbeat) - PASSIVE
+    if (link_sensor_) {
+      bool connected = (now - last_spa_packet_ms_ < 3500);
+      if (connected != link_sensor_->state) link_sensor_->publish_state(connected);
+    }
+    if (kbd_link_sensor_) {
+      bool connected = (now - last_kbd_packet_ms_ < 3500);
+      if (connected != kbd_link_sensor_->state) kbd_link_sensor_->publish_state(connected);
+    }
+
+    // --- NETWORK GOVERNOR (v6.7.8-STABLE) ---
+    if (!http_busy_ && !eedomus_queue_.empty()) {
+      if (now - last_http_ms_ > 15000) { // 15s cadence
+        size_t free_heap = esp_get_free_heap_size();
+        ESP_LOGD(TAG, "Gov Check: Heap=%u bytes, Queue=%d", (unsigned int)free_heap, (int)eedomus_queue_.size());
+        if (free_heap > 10240) { // Lower threshold to 10k
+          last_http_ms_ = now;
+          EedomusRequest req = eedomus_queue_.front();
+          eedomus_queue_.pop_front();
+          if (reporter_callback_) {
+            http_busy_ = true;
+            reporter_callback_(req.periph_id, req.value, req.is_float);
+          }
+        } else {
+          ESP_LOGW(TAG, "Heap too low (%u), deferred report", (unsigned int)free_heap);
+        }
+      }
     }
   }
 
@@ -123,7 +186,7 @@ protected:
   number::Number *setpoint_sensor_{nullptr};
   switch_::Switch *f_switch_{nullptr}, *h_switch_{nullptr}, *u_switch_{nullptr};
   select::Select *b_select_{nullptr};
-  binary_sensor::BinarySensor *filter_alert_sensor_{nullptr};
+  binary_sensor::BinarySensor *filter_alert_sensor_{nullptr}, *link_sensor_{nullptr}, *kbd_link_sensor_{nullptr};
 
   bool real_f_{false}, real_h_{false}, real_u_{false}, physical_f_on_{false};
   bool lock_{false};
@@ -134,6 +197,8 @@ protected:
   uint8_t retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0};
 
   uint32_t last_watchdog_{0};
+  uint32_t last_spa_packet_ms_{0};
+  uint32_t last_kbd_packet_ms_{0};
   uint32_t last_on_f_{0}, last_on_h_{0}, last_on_u_{0}, last_on_b_{0};
 
   // Alerte Filtre
@@ -145,6 +210,13 @@ protected:
 
   uint8_t kbd_buf_[10], kbd_idx_{0};
   uint8_t spa_buf_[10], spa_idx_{0};
+  std::deque<EedomusRequest> eedomus_queue_;
+
+  float current_temp_internal_{0.0f};
+  uint32_t last_http_ms_ = 0;
+  uint32_t last_network_cmd_ms_ = 0;
+  bool http_busy_ = false;
+  std::function<void(int, float, bool)> reporter_callback_{nullptr};
 
   void process_machine(uint8_t c, uint8_t *buf, uint8_t &idx, bool from_spa) {
     if (c == 0xA5 || (idx == 0 && c == 0x00)) {
@@ -185,6 +257,7 @@ protected:
     }
     if (idx >= 10)
       idx = 0;
+    if (from_spa) last_spa_packet_ms_ = millis(); else last_kbd_packet_ms_ = millis();
   }
 
   void handle_frame(uint8_t id, uint8_t d1, uint8_t d2, bool is_a5,
@@ -244,8 +317,10 @@ protected:
                      val, d2);
           }
         }
-      } else if (id == 0x06 && temp_sensor_) {
-        temp_sensor_->publish_state(d1 / 2.0f);
+      } else if (id == 0x06) {
+        current_temp_internal_ = d1 / 2.0f;
+        // La publication est gérée par le poll 60s du YAML pour éviter le spam logs
+        // if (temp_sensor_) temp_sensor_->publish_state(current_temp_internal_);
       }
     }
   }
@@ -279,7 +354,7 @@ protected:
     }
   }
 
-  void check_target(bool target, bool real, uint8_t &retry, uint8_t cmd_id,
+  void check_target(bool &target, bool real, uint8_t &retry, uint8_t cmd_id,
                     switch_::Switch *sw) {
     if (target != real && retry > 0) {
       retry--;
