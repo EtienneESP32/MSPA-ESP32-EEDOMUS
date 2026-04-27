@@ -2,7 +2,7 @@
 # Stratégie : Intent-Based Decoupling, C++ Sniper Engine
 
 substitutions:
-  mspa_version: "6.3.11-STABLE"
+  mspa_version: "6.9.16"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
