@@ -95,9 +95,16 @@ public:
 
   void enqueue_eedomus(int periph_id, float value, bool is_float = false,
                        bool priority = false) {
-    if (eedomus_queue_.size() > 15)
-      eedomus_queue_.pop_front();
-    eedomus_queue_.push_back({periph_id, value, is_float});
+    if (eedomus_queue_.size() > 15) {
+      if (priority) eedomus_queue_.pop_back(); // Remove oldest if full and we want to push priority
+      else eedomus_queue_.pop_front();
+    }
+    
+    if (priority) {
+      eedomus_queue_.push_front({periph_id, value, is_float});
+    } else {
+      eedomus_queue_.push_back({periph_id, value, is_float});
+    }
   }
 
   void loop() override {

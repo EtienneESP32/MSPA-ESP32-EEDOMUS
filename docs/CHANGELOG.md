@@ -1,5 +1,17 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-04-29 — Stabilisation Réseau & Priorité (v6.9.18-PROD)
+- **Nettoyage UI (PROD)** : Masquage des capteurs de diagnostic (Lien Clavier, Lien Moteur, Démarré le) de l'interface Web pour alléger la charge du serveur local.
+- **Stabilité au Boot** : Ajout d'un délai de grâce de 30 secondes avant le démarrage de la file d'attente Eedomus pour laisser l'ESP (NTP, Web Server, Wi-Fi) se stabiliser sans saturer les sockets.
+- **Correction File d'Attente C++** : Modification de `enqueue_eedomus` (utilisation de `push_front`) pour que les messages prioritaires (Alertes, Changements d'état) passent instantanément en tête de file devant les températures, tout en respectant l'intervalle de sécurité de 15s.
+- **Compatibilité Eedomus (Heritage)** : Restauration scrupuleuse des noms historiques des composants (ex: `"Action Reset Alerte"`) pour éviter les erreurs HTTP 404 qui provoquaient un pilonnage de l'Eedomus et la saturation immédiate des connexions.
+- **Heartbeat Température** : Ajout d'un intervalle forcé d'1 heure (`interval: 1h`) pour pousser la température vers l'Eedomus même sans variation, garantissant un contrôle de "vie" du système.
+- **LIMITATIONS & APPRENTISSAGES** : 
+  - *Sockets ESP32* : Limite physique très basse (8-10 max). Garder la page Web ouverte consomme des sockets et peut bloquer les requêtes sortantes (`Error 23: failed to create socket`).
+  - *Keep-Alive* : Maintenir les connexions HTTP ouvertes sature l'ESP. Les 15s de délai entre envois sont vitales.
+  - *Erreurs 404 Eedomus* : Une URL invalide côté Eedomus (suite à un renommage de composant) entraîne des tentatives de reconnexion agressives qui tuent littéralement le réseau de l'ESP en quelques secondes.
+
+
 ### 2026-04-27 — Correction Asymétrie & Offset Bible (v6.9.16-LABO)
 - **Protocole (mspa_uart.h)** : Correction de l'asymétrie de réception de la consigne (Offset 30 / d2 + 30.0f) pour conformité avec le Simulateur et la Bible.
 - **Diagnostic** : Intégration des capteurs de performance (Loop Time, Heap, Min Heap) pour évaluation de la charge CPU/RAM.

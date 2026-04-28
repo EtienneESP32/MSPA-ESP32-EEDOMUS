@@ -74,6 +74,9 @@ wifi:
     ssid: ${ap_ssid}
     password: ${ap_password}
 
+mdns:
+  disabled: true
+
 http_request:
   useragent: esphome/mspa
   timeout: 5s
@@ -106,9 +109,9 @@ time:
             }
 
 logger:
-  level: VERBOSE
+  level: INFO
   logs:
-    mspa_uart: VERBOSE
+    mspa_uart: INFO
     main: INFO
     api: WARN
     wifi: WARN
@@ -187,15 +190,17 @@ binary_sensor:
     name: "Lien Moteur"
     id: motor_link
     device_class: connectivity
+    internal: true
   - platform: template
     name: "Lien Clavier"
     id: kbd_link
     device_class: connectivity
+    internal: true
 
 sensor:
   - platform: template
-    name: "Temperature Eau"
     id: cur_temp
+    name: "Temperature Eau"
     unit_of_measurement: "°C"
     update_interval: 60s
     lambda: |-
@@ -227,6 +232,7 @@ text_sensor:
     id: txt_boot_time
     icon: "mdi:calendar-clock"
     update_interval: never
+    internal: true
 
 switch:
   - platform: template
@@ -283,17 +289,16 @@ switch:
     icon: "mdi:lock"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    turn_on_action:
-      - lambda: 'id(mspa_logic)->set_lock(true);'
-    turn_off_action:
-      - lambda: 'id(mspa_logic)->set_lock(false);'
-    on_state:
-      then:
-        - lambda: |-
-            if (x != id(g_lock)) {
-              id(g_lock) = x;
-              id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, x ? 1 : 0, false, true);
-            }
+    on_turn_on:
+      - lambda: |-
+          id(mspa_logic)->set_lock(true);
+          id(g_lock) = true;
+          id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, 1.0f, false, true);
+    on_turn_off:
+      - lambda: |-
+          id(mspa_logic)->set_lock(false);
+          id(g_lock) = false;
+          id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, 0.0f, false, true);
   - platform: template
     name: "Action Reset Alerte"
     id: sw_reset_filt
@@ -301,51 +306,6 @@ switch:
     optimistic: false
     turn_on_action:
       - script.execute: script_reset_burst
-  - platform: template
-    name: "Lien Eedomus"
-    id: sw_eedomus_link
-    icon: "mdi:cloud-sync"
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      - lambda: 'id(g_eedomus_enabled) = true;'
-    on_turn_off:
-      - lambda: 'id(g_eedomus_enabled) = false;'
-
-
-
-
-  - platform: template
-    name: "Consigne Plus"
-    id: sw_plus
-    icon: "mdi:plus-circle"
-    turn_on_action:
-      - lambda: |-
-          float current = id(temperature_consigne).state;
-          if (std::isnan(current)) current = 38.0f;
-          float target = current + 1.0f;
-          if (target > 40.0f) target = 40.0f;
-          id(mspa_logic)->inject_cmd(0x04, (uint8_t)(target * 2.0f));
-          id(mspa_logic)->control_heating(true);
-      - switch.template.publish:
-          id: sw_plus
-          state: OFF
-
-  - platform: template
-    name: "Consigne Moins"
-    id: sw_moins
-    icon: "mdi:minus-circle"
-    turn_on_action:
-      - lambda: |-
-          float current = id(temperature_consigne).state;
-          if (std::isnan(current)) current = 38.0f;
-          float target = current - 1.0f;
-          if (target < 20.0f) target = 20.0f;
-          id(mspa_logic)->inject_cmd(0x04, (uint8_t)(target * 2.0f));
-          id(mspa_logic)->control_heating(true);
-      - switch.template.publish:
-          id: sw_moins
-          state: OFF
 
 select:
   - platform: template
@@ -400,34 +360,27 @@ script:
       p_val: float
       p_f: bool
     then:
-      - if:
-          condition:
-            lambda: 'return id(g_eedomus_enabled);'
-          then:
-            - http_request.send:
-                method: GET
-                url: !lambda |-
-                  char url[256];
-                  std::string host = "${eedomus_host}";
-                  bool is_cloud = (host == "api.eedomus.com");
-                  const char* proto = "https";
-                  const char* path = is_cloud ? "/set" : "/api/set";
-                  if (p_f) {
-                    sprintf(url, "%s:%s%s%s?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", proto, "//", host.c_str(), path, p_id, p_val);
-                  } else {
-                    sprintf(url, "%s:%s%s%s?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", proto, "//", host.c_str(), path, p_id, (int)p_val);
-                  }
-                  ESP_LOGI("eedomus", "URL envoyee: %s", url);
-                  return url;
-                on_response:
-                  lambda: |-
-                    id(mspa_logic)->set_http_busy(false);
-                on_error:
-                  then:
-                    - lambda: 'id(mspa_logic)->set_http_busy(false);'
-                    - logger.log: "Eedomus FAIL (Reseau/DNS)"
-          else:
-            - lambda: 'id(mspa_logic)->set_http_busy(false);'
+      - http_request.send:
+          method: GET
+          url: !lambda |-
+            char url[256];
+            std::string host = "${eedomus_host}";
+            bool is_cloud = (host == "api.eedomus.com");
+            const char* proto = is_cloud ? "https" : "http";
+            const char* path = is_cloud ? "/set" : "/api/set";
+            if (p_f) {
+              sprintf(url, "%s:%s%s%s?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", proto, "//", host.c_str(), path, p_id, p_val);
+            } else {
+              sprintf(url, "%s:%s%s%s?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", proto, "//", host.c_str(), path, p_id, (int)p_val);
+            }
+            return url;
+          on_response:
+            lambda: |-
+              id(mspa_logic)->set_http_busy(false);
+          on_error:
+            then:
+              - lambda: 'id(mspa_logic)->set_http_busy(false);'
+              - logger.log: "Eedomus FAIL (Reseau/DNS)"
 
 
 
@@ -435,6 +388,7 @@ script:
   - id: script_soft_sync
     mode: single
     then:
+      - delay: 30s
       - logger.log: "Synchronisation initiale PRIORITAIRE (Consigne)..."
       - lambda: |-
           id(g_setpoint) = id(temperature_consigne).state;
@@ -494,3 +448,10 @@ interval:
     then:
       - lambda: |-
           ESP_LOGI("SYNC", "System Heartbeat (Heap: %u)", esp_get_free_heap_size());
+  - interval: 1h
+    then:
+      - logger.log: "Envoi force de la temperature (Heartbeat Eedomus 1h)"
+      - lambda: |-
+          if (!std::isnan(id(cur_temp).state)) {
+            id(mspa_logic)->enqueue_eedomus(${periph_temp_eau}, id(cur_temp).state, true);
+          }
