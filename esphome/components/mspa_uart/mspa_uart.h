@@ -28,7 +28,7 @@ public:
       : uart_spa_(uart_spa), uart_kbd_(uart_kbd) {}
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA UART v6.9.16 initialized");
+    ESP_LOGI(TAG, "MSPA UART v7.1.0-STABLE (ESP-IDF) initialized");
     uart_mutex_ = xSemaphoreCreateMutex();
     kbd_idx_ = 0;
     spa_idx_ = 0;
@@ -95,22 +95,39 @@ public:
 
   void enqueue_eedomus(int periph_id, float value, bool is_float = false,
                        bool priority = false) {
-    if (eedomus_queue_.size() > 15) {
-      if (priority) eedomus_queue_.pop_back(); // Remove oldest if full and we want to push priority
-      else eedomus_queue_.pop_front();
-    }
-    
-    if (priority) {
-      eedomus_queue_.push_front({periph_id, value, is_float});
-    } else {
-      eedomus_queue_.push_back({periph_id, value, is_float});
+    if (uart_mutex_ == nullptr) return;
+    if (xSemaphoreTake(uart_mutex_, pdMS_TO_TICKS(100)) == pdTRUE) {
+      for (auto it = eedomus_queue_.begin(); it != eedomus_queue_.end(); ++it) {
+        if (it->periph_id == periph_id) {
+          it->value = value;
+          it->is_float = is_float;
+          if (priority) {
+            EedomusRequest req = *it;
+            eedomus_queue_.erase(it);
+            eedomus_queue_.push_front(req);
+            ESP_LOGD(TAG, "[QUEUE] ID %d promoted to FRONT", periph_id);
+          }
+          xSemaphoreGive(uart_mutex_);
+          return;
+        }
+      }
+      if (priority) {
+        eedomus_queue_.push_front({periph_id, value, is_float});
+        ESP_LOGI(TAG, "[QUEUE] Enqueue PRIORITY ID: %d (Size: %d)", periph_id, (int)eedomus_queue_.size());
+      } else {
+        eedomus_queue_.push_back({periph_id, value, is_float});
+        ESP_LOGD(TAG, "[QUEUE] Enqueue ID: %d (Size: %d)", periph_id, (int)eedomus_queue_.size());
+      }
+      xSemaphoreGive(uart_mutex_);
     }
   }
 
   void loop() override {
     uint32_t now = millis();
-    if (http_busy_ && (now - last_http_start_ms_ > 30000))
+    if (http_busy_ && (now - last_http_start_ms_ > 10000)) {
+      ESP_LOGW(TAG, "[QUEUE] HTTP Timeout! Force releasing busy flag.");
       http_busy_ = false;
+    }
 
     if (now - last_watchdog_ > 1500) {
       last_watchdog_ = now;
@@ -121,12 +138,22 @@ public:
         kbd_link_sensor_->publish_state(now - last_kbd_packet_ms_ < 3500);
     }
 
+    if (http_busy_ && !eedomus_queue_.empty()) {
+        static uint32_t last_busy_log = 0;
+        if (now - last_busy_log > 5000) {
+            ESP_LOGW(TAG, "[QUEUE] Waiting for HTTP response... (Queue size: %d)", (int)eedomus_queue_.size());
+            last_busy_log = now;
+        }
+    }
+
     if (!http_busy_ && !eedomus_queue_.empty() &&
-        (now - last_http_ms_ > 15000)) {
+        (now - last_http_ms_ > 3000)) {
       if (esp_get_free_heap_size() > 10240) {
         last_http_ms_ = now;
         EedomusRequest req = eedomus_queue_.front();
         eedomus_queue_.pop_front();
+        
+        ESP_LOGI(TAG, "[QUEUE] Processing ID: %d (Remaining: %d)", req.periph_id, (int)eedomus_queue_.size());
         if (reporter_callback_) {
           set_http_busy(true);
           reporter_callback_(req.periph_id, req.value, req.is_float);
@@ -139,7 +166,7 @@ protected:
   uart::UARTComponent *uart_spa_;
   uart::UARTComponent *uart_kbd_;
   TaskHandle_t uart_task_handle_;
-  SemaphoreHandle_t uart_mutex_;
+  SemaphoreHandle_t uart_mutex_{nullptr};
 
   sensor::Sensor *temp_sensor_{nullptr};
   number::Number *setpoint_sensor_{nullptr};

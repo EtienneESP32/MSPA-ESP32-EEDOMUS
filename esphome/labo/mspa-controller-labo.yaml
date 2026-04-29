@@ -1,8 +1,8 @@
-# Contrôleur MSPA – Version 6.9.16-LABO (Full Modern UI)
+# Controleur MSPA – Version 7.1.0-STABLE (Production Release)
 # RESTAURATION TOTALE - RÉGLAGES LABO
 
 substitutions:
-  mspa_version: "6.9.16"
+  mspa_version: "7.1.0-STABLE"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -41,15 +41,15 @@ esphome:
     then:
       - lambda: |-
           id(mspa_logic)->set_temp_sensor(id(cur_temp));
-          id(mspa_logic)->set_setpoint_sensor(id(temperature_consigne));
+          id(mspa_logic)->set_setpoint_sensor(id(consigne_temperature));
           id(mspa_logic)->set_filter_alert_sensor(id(filt_alert));
-          id(mspa_logic)->set_f_switch(id(sw_f));
-          id(mspa_logic)->set_h_switch(id(sw_h));
-          id(mspa_logic)->set_u_switch(id(sw_u));
-          id(mspa_logic)->set_b_select(id(sel_b));
+          id(mspa_logic)->set_f_switch(id(filtration));
+          id(mspa_logic)->set_h_switch(id(chauffage));
+          id(mspa_logic)->set_u_switch(id(uvc));
+          id(mspa_logic)->set_b_select(id(mode_bulles));
           id(mspa_logic)->set_link_sensor(id(motor_link));
           id(mspa_logic)->set_kbd_link_sensor(id(kbd_link));
-          id(mspa_logic)->set_lock(id(sw_lock).state);
+          id(mspa_logic)->set_lock(id(verrouillage_clavier).state);
           id(mspa_logic)->set_reporter_callback([=](int p_id, float p_val, bool p_f) {
             id(script_push_eedomus).execute(p_id, p_val, p_f);
           });
@@ -57,7 +57,10 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_LWIP_MAX_SOCKETS: "16"
+      CONFIG_HTTPD_MAX_OPEN_SOCKETS: "12"
 
 wifi:
   power_save_mode: none
@@ -237,13 +240,19 @@ text_sensor:
 switch:
   - platform: template
     name: "Filtration"
-    id: sw_f
+    id: filtration
     icon: "mdi:filter-variant"
     optimistic: false
     turn_on_action:
       - lambda: 'id(mspa_logic)->control_filtration(true);'
     turn_off_action:
-      - lambda: 'id(mspa_logic)->control_filtration(false);'
+      - lambda: |-
+          if (id(chauffage).state) {
+            ESP_LOGW("main", "Refus Filtration OFF : Chauffage est ON");
+            id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 1, false, true);
+          } else {
+            id(mspa_logic)->control_filtration(false);
+          }
     on_state:
       then:
         - lambda: |-
@@ -253,7 +262,7 @@ switch:
             }
   - platform: template
     name: "Chauffage"
-    id: sw_h
+    id: chauffage
     icon: "mdi:fire"
     optimistic: false
     turn_on_action:
@@ -269,7 +278,7 @@ switch:
             }
   - platform: template
     name: "UVC"
-    id: sw_u
+    id: uvc
     icon: "mdi:lightbulb-uv"
     optimistic: false
     turn_on_action:
@@ -285,7 +294,7 @@ switch:
             }
   - platform: template
     name: "Verrouillage Clavier"
-    id: sw_lock
+    id: verrouillage_clavier
     icon: "mdi:lock"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
@@ -301,16 +310,44 @@ switch:
           id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, 0.0f, false, true);
   - platform: template
     name: "Action Reset Alerte"
-    id: sw_reset_filt
+    id: action_reset_alerte
     icon: "mdi:filter-remove"
     optimistic: false
     turn_on_action:
       - script.execute: script_reset_burst
 
+  - platform: template
+    name: "consigne_plus"
+    id: consigne_plus
+    internal: false
+    icon: "mdi:plus-circle-outline"
+    turn_on_action:
+      - lambda: |-
+          float val = id(consigne_temperature).state + 1.0f;
+          if (val > 40.0f) val = 40.0f;
+          auto call = id(consigne_temperature).make_call();
+          call.set_value(val);
+          call.perform();
+      - switch.turn_off: consigne_plus
+
+  - platform: template
+    name: "consigne_moins"
+    id: consigne_moins
+    internal: false
+    icon: "mdi:minus-circle-outline"
+    turn_on_action:
+      - lambda: |-
+          float val = id(consigne_temperature).state - 1.0f;
+          if (val < 20.0f) val = 20.0f;
+          auto call = id(consigne_temperature).make_call();
+          call.set_value(val);
+          call.perform();
+      - switch.turn_off: consigne_moins
+
 select:
   - platform: template
     name: "Mode Bulles"
-    id: sel_b
+    id: mode_bulles
     icon: "mdi:chart-bubble"
     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
     optimistic: false
@@ -331,7 +368,7 @@ select:
 number:
   - platform: template
     name: "Temperature Consigne"
-    id: temperature_consigne
+    id: consigne_temperature
     icon: "mdi:thermometer"
     unit_of_measurement: "°C"
     mode: box
@@ -349,6 +386,7 @@ number:
     set_action:
       then:
         - lambda: |-
+            // Force re-sync with Factor 2 (Bible alignment)
             uint8_t val = (uint8_t)(x * 2.0f);
             id(mspa_logic)->inject_cmd(0x04, val);
 
@@ -391,33 +429,33 @@ script:
       - delay: 30s
       - logger.log: "Synchronisation initiale PRIORITAIRE (Consigne)..."
       - lambda: |-
-          id(g_setpoint) = id(temperature_consigne).state;
+          id(g_setpoint) = id(consigne_temperature).state;
           id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true, true);
       - delay: 15s
-      - logger.log: "Synchronisation initiale progressive (v6.9.10)..."
+      - logger.log: "Synchronisation initiale progressive (v6.9.20)..."
       - lambda: |-
-          id(g_f) = id(sw_f).state;
+          id(g_f) = id(filtration).state;
           id(mspa_logic)->enqueue_eedomus(${periph_filtration}, id(g_f) ? 1 : 0, false);
       - delay: 15s
       - lambda: |-
-          id(g_h) = id(sw_h).state;
+          id(g_h) = id(chauffage).state;
           id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, id(g_h) ? 1 : 0, false);
       - delay: 15s
       - lambda: |-
-          id(g_u) = id(sw_u).state;
+          id(g_u) = id(uvc).state;
           id(mspa_logic)->enqueue_eedomus(${periph_uvc}, id(g_u) ? 1 : 0, false);
       - delay: 15s
       - lambda: |-
-          id(g_lock) = id(sw_lock).state;
+          id(g_lock) = id(verrouillage_clavier).state;
           id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, id(g_lock) ? 1 : 0, false);
       - delay: 15s
       - lambda: |-
-          int val = (id(sel_b).current_option() == "Niveau1")?1:(id(sel_b).current_option() == "Niveau2")?2:(id(sel_b).current_option() == "Niveau3")?3:0;
+          int val = (id(mode_bulles).current_option() == "Niveau1")?1:(id(mode_bulles).current_option() == "Niveau2")?2:(id(mode_bulles).current_option() == "Niveau3")?3:0;
           id(g_b) = val;
           id(mspa_logic)->enqueue_eedomus(${periph_bulles}, (float)val, false);
       - delay: 15s
       - lambda: |-
-          id(g_setpoint) = id(temperature_consigne).state;
+          id(g_setpoint) = id(consigne_temperature).state;
           id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true);
       - delay: 15s
       - lambda: |-
@@ -431,7 +469,7 @@ script:
     mode: restart
     then:
       - switch.template.publish:
-          id: sw_reset_filt
+          id: action_reset_alerte
           state: ON
       - repeat:
           count: 40
@@ -439,7 +477,7 @@ script:
             - lambda: 'id(mspa_logic)->inject_cmd(0x02, 0x01);'
             - delay: 100ms
       - switch.template.publish:
-          id: sw_reset_filt
+          id: action_reset_alerte
           state: OFF
       - logger.log: "Rafale de Reset terminée (4.0s)"
 
