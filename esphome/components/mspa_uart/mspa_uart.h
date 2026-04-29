@@ -28,7 +28,7 @@ public:
       : uart_spa_(uart_spa), uart_kbd_(uart_kbd) {}
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA UART v7.1.0-STABLE (ESP-IDF) initialized");
+    ESP_LOGI(TAG, "Controleur MSPA – Version 7.1.5-PURE-LOGIC (Compliance Fix)");
     uart_mutex_ = xSemaphoreCreateMutex();
     kbd_idx_ = 0;
     spa_idx_ = 0;
@@ -124,7 +124,7 @@ public:
 
   void loop() override {
     uint32_t now = millis();
-    if (http_busy_ && (now - last_http_start_ms_ > 10000)) {
+    if (http_busy_ && (now - last_http_start_ms_ > 8000)) {
       ESP_LOGW(TAG, "[QUEUE] HTTP Timeout! Force releasing busy flag.");
       http_busy_ = false;
     }
@@ -190,7 +190,7 @@ protected:
 
   uint8_t kbd_buf_[10], kbd_idx_{0};
   uint8_t spa_buf_[10], spa_idx_{0};
-  uint32_t last_on_f_{0}, last_on_h_{0}, last_on_u_{0};
+  uint32_t last_on_f_{0}, last_on_h_{0}, last_on_u_{0}, last_on_b_{0};
   bool is_blinking_f_{false}, last_f_on_{false}, last_alert_val_{false};
 
   void uart_task() {
@@ -272,18 +272,31 @@ protected:
     if (id == 0x1A) {
       bool f_on = (d1 & 0x01);
       if (f_on) {
-        if (!last_f_on_ && (now - last_on_f_ > 400 && now - last_on_f_ < 1500))
-          is_blinking_f_ = true;
-        else if (!last_f_on_)
-          is_blinking_f_ = false;
-        last_on_f_ = now;
+        if (!last_f_on_) {
+          uint32_t dt = now - last_on_f_;
+          if (dt > 400 && dt < 1500)
+            is_blinking_f_ = true;
+          else
+            is_blinking_f_ = false;
+          last_on_f_ = now;
+        }
       } else if (now - last_on_f_ > 1500)
         is_blinking_f_ = false;
       last_f_on_ = f_on;
+
       if (d1 & 0x02)
         last_on_h_ = now;
       if (d1 & 0x04)
         last_on_u_ = now;
+
+      // Legacy Alert Strategy (v6.6.0)
+      if (filter_alert_sensor_) {
+        bool alert = (is_blinking_f_ && !physical_f_on_);
+        if (alert != last_alert_val_) {
+          last_alert_val_ = alert;
+          filter_alert_sensor_->publish_state(alert);
+        }
+      }
     } else if (id == 0x08) {
       physical_f_on_ = (d1 & 0x01);
     } else if (id == 0x1B) {
@@ -298,7 +311,7 @@ protected:
                                              : "Arret");
       }
       if (setpoint_sensor_) {
-        float val = d2 + 30.0f;
+        float val = (int8_t)d2 + 30.0f;
         if (val >= 20.0f && val <= 42.0f && setpoint_sensor_->state != val)
           setpoint_sensor_->publish_state(val);
       }
