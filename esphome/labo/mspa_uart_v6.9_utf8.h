@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "esphome.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/number/number.h"
@@ -27,17 +27,9 @@ public:
                     uart::UARTComponent *uart_kbd)
       : uart_spa_(uart_spa), uart_kbd_(uart_kbd) {}
 
-  // PUBLIC ATOMICS FOR YAML ACCESS
-  std::atomic<bool> real_f_{false}, real_h_{false}, real_u_{false},
-      lock_{false}, physical_f_on_{false};
-  std::atomic<uint8_t> real_b_{0}, target_b_{0};
-  std::atomic<bool> target_f_{false}, target_h_{false}, target_u_{false};
-  std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0};
-  std::atomic<float> current_temp_internal_{0.0f};
-
   void setup() override {
+    ESP_LOGI(TAG, "MSPA UART v6.9.16 initialized");
     uart_mutex_ = xSemaphoreCreateMutex();
-    ESP_LOGI(TAG, "MSPA Heritage v6.9.18-PROD initialized");
     kbd_idx_ = 0;
     spa_idx_ = 0;
     last_watchdog_ = millis();
@@ -103,19 +95,9 @@ public:
 
   void enqueue_eedomus(int periph_id, float value, bool is_float = false,
                        bool priority = false) {
-    if (eedomus_queue_.size() > 15) {
-      if (priority)
-        eedomus_queue_.pop_back(); // Remove oldest if full and we want to push
-                                   // priority
-      else
-        eedomus_queue_.pop_front();
-    }
-
-    if (priority) {
-      eedomus_queue_.push_front({periph_id, value, is_float});
-    } else {
-      eedomus_queue_.push_back({periph_id, value, is_float});
-    }
+    if (eedomus_queue_.size() > 15)
+      eedomus_queue_.pop_front();
+    eedomus_queue_.push_back({periph_id, value, is_float});
   }
 
   void loop() override {
@@ -132,7 +114,8 @@ public:
         kbd_link_sensor_->publish_state(now - last_kbd_packet_ms_ < 3500);
     }
 
-    if (!http_busy_ && !eedomus_queue_.empty() && (now - last_http_ms_ > 5000)) {
+    if (!http_busy_ && !eedomus_queue_.empty() &&
+        (now - last_http_ms_ > 15000)) {
       if (esp_get_free_heap_size() > 10240) {
         last_http_ms_ = now;
         EedomusRequest req = eedomus_queue_.front();
@@ -158,6 +141,13 @@ protected:
   binary_sensor::BinarySensor *filter_alert_sensor_{nullptr},
       *link_sensor_{nullptr}, *kbd_link_sensor_{nullptr};
 
+  std::atomic<bool> real_f_{false}, real_h_{false}, real_u_{false},
+      lock_{false}, physical_f_on_{false};
+  std::atomic<uint8_t> real_b_{0}, target_b_{0};
+  std::atomic<bool> target_f_{false}, target_h_{false}, target_u_{false};
+  std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0};
+  std::atomic<float> current_temp_internal_{0.0f};
+
   uint32_t last_watchdog_{0}, last_spa_packet_ms_{0}, last_kbd_packet_ms_{0};
   uint32_t last_http_ms_{0}, last_http_start_ms_{0};
   std::atomic<bool> http_busy_{false};
@@ -172,7 +162,7 @@ protected:
   void uart_task() {
     uint8_t c;
     while (true) {
-      // SPA -> KBD (Transparent Immédiat)
+      // SPA -> KBD (Transparent Imm├®diat)
       while (uart_spa_->available()) {
         if (uart_spa_->read_byte(&c)) {
           if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
@@ -182,7 +172,7 @@ protected:
           process_machine(c, spa_buf_, spa_idx_, true);
         }
       }
-      // KBD -> SPA (Filtré pour MITM/Lock)
+      // KBD -> SPA (Filtr├® pour MITM/Lock)
       while (uart_kbd_->available()) {
         if (uart_kbd_->read_byte(&c)) {
           process_machine(c, kbd_buf_, kbd_idx_, false);
@@ -274,7 +264,7 @@ protected:
                                              : "Arret");
       }
       if (setpoint_sensor_) {
-        float val = (int8_t)d2 + 30.0f;
+        float val = d2 + 30.0f;
         if (val >= 20.0f && val <= 42.0f && setpoint_sensor_->state != val)
           setpoint_sensor_->publish_state(val);
       }

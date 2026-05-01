@@ -1,0 +1,162 @@
+py : INFO ESPHome 2026.1.4
+Au caract?re Ligne:1 : 1
++ py -m esphome compile mspa-controller-labo.yaml > build_log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (INFO ESPHome 2026.1.4:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+INFO Reading configuration mspa-controller-labo.yaml...
+INFO Generating C++ source...
+INFO Compiling app... Build path: C:\Users\ebesa\Documents\MSPA\esphome\labo\.esphome\build\mspa-controller
+Processing mspa-controller (board: esp32dev; framework: arduino, espidf; platform: https://github.com/pioarduino/platform-espressif32/releases/download/55.03.35/platform-espressif32.zip)
+
+--------------------------------------------------------------------------------
+
+Tool Manager: Installing https://github.com/pioarduino/registry/releases/download/0.0.1/mklittlefs-3.2.0-new.zip
+
+INFO Installing https://github.com/pioarduino/registry/releases/download/0.0.1/mklittlefs-3.2.0-new.zip
+
+Unpacking  [------------------------------------]    0%
+Unpacking  [##################------------------]   50%
+Unpacking  [####################################]  100%
+
+Tool Manager: tool-mklittlefs@3.2.0 has been installed!
+
+INFO tool-mklittlefs@3.2.0 has been installed!
+INFO Installing tools via idf_tools.py (this may take several minutes)...
+INFO Tool tool-mklittlefs successfully installed
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+
+ - contrib-piohome @ 3.4.4 
+
+ - framework-arduinoespressif32 @ 3.3.5 
+
+ - framework-arduinoespressif32-libs @ 5.5.0+sha.9bb7aa84fe 
+
+ - framework-espidf @ 3.50502.0 (5.5.2) 
+
+ - tool-cmake @ 4.0.3 
+
+ - tool-esp-rom-elfs @ 2024.10.11 
+
+ - tool-esptoolpy @ 5.1.0 
+
+ - tool-ninja @ 1.13.1 
+
+ - tool-scons @ 4.40801.0 (4.8.1) 
+
+ - toolchain-xtensa-esp-elf @ 14.2.0+20251107
+
+Reading CMake configuration...
+
+Dependency Graph
+
+|-- Networking @ 3.3.5
+
+|-- ArduinoJson @ 7.4.2
+
+Compiling .pioenvs\mspa-controller\src\main.cpp.o
+
+In file included from src/esphome/core/component.h:9,
+
+                 from src/esphome/core/application.h:10,
+
+                 from src/esphome\components\api\api_frame_helper.h:13,
+
+                 from src/esphome\components\api\api_connection.h:5,
+
+                 from src/esphome.h:3,
+
+                 from src/main.cpp:3:
+
+mspa-controller-labo.yaml: In lambda function:
+
+mspa-controller-labo.yaml:344:51: error: 'status_code' was not declared in this scope; did you mean 'HttpStatus_Code'?
+
+src/esphome/core/log.h:96:100: note: in definition of macro 'esph_log_d'
+
+   96 |   ::esphome::esp_log_printf_(ESPHOME_LOG_LEVEL_DEBUG, tag, __LINE__, ESPHOME_LOG_FORMAT(format), ##__VA_ARGS__)
+
+      |                                                                                                    ^~~~~~~~~~~
+mspa-controller-labo.yaml:344:7: note: in expansion of macro 'ESP_LOGD'
+
+mspa-controller-labo.yaml: In lambda function:
+
+mspa-controller-labo.yaml:371:27: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+In file included from src/esphome/core/application.h:77:
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:27: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:27: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:57: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:57: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:57: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:87: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:87: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+mspa-controller-labo.yaml:371:87: warning: 'esphome::select::Select::state' is deprecated: Use current_option() 
+instead of .state. Will be removed in 2026.7.0 [-Wdeprecated-declarations]
+
+src/esphome/components/select/select.h:39:15: note: declared here
+
+   39 |   std::string state{};
+
+      |               ^~~~~
+*** [.pioenvs\mspa-controller\src\main.cpp.o] Error 1
+
+========================= [FAILED] Took 23.56 seconds =========================
+

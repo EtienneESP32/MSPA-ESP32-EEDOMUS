@@ -1,0 +1,322 @@
+﻿# Contr├┤leur MSPA ÔÇô Version 6.3.5-STABLE (Firewall & Sync)
+# Strat├®gie : Intent-Based Decoupling, C++ Sniper Engine
+
+substitutions:
+  mspa_version: "6.3.5-STABLE"
+  eedomus_enabled: "true"
+  eedomus_host: !secret eedomus_host
+  eedomus_api_user: !secret eedomus_api_user
+  eedomus_api_secret: !secret eedomus_api_secret
+  static_ip: !secret static_ip
+  gateway: !secret gateway
+  subnet: !secret subnet
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  periph_filtration: !secret eedomus_periph_filtration
+  periph_chauffage: !secret eedomus_periph_chauffage
+  periph_bulles: !secret eedomus_periph_bulles
+  periph_uvc: !secret eedomus_periph_uvc
+  periph_verrouillage: !secret eedomus_periph_verrouillage
+  periph_consigne_temp: !secret eedomus_periph_consigne_temp
+  periph_temp_eau: !secret eedomus_periph_temp_eau
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [ mspa_uart ]
+
+mspa_uart:
+  id: mspa_logic
+  uart_spa: uart_spa
+  uart_kbd: uart_kbd
+
+esphome:
+  name: mspa-controller
+  friendly_name: "MSPA v${mspa_version}"
+  on_boot:
+    priority: 800
+    then:
+      - lambda: |-
+          id(mspa_logic)->set_temp_sensor(id(cur_temp));
+          id(mspa_logic)->set_setpoint_sensor(id(test_setpoint));
+          id(mspa_logic)->set_filter_alert_sensor(id(filt_alert));
+          // Sync UI
+          id(mspa_logic)->set_f_switch(id(sw_f));
+          id(mspa_logic)->set_h_switch(id(sw_h));
+          id(mspa_logic)->set_u_switch(id(sw_u));
+          id(mspa_logic)->set_b_select(id(sel_b));
+          id(mspa_logic)->set_lock(id(sw_lock).state);
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: ${wifi_ssid}
+      password: ${wifi_password}
+      manual_ip:
+        static_ip: ${static_ip}
+        gateway: ${gateway}
+        subnet: ${subnet}
+  ap:
+    ssid: "MSPA-RECOVERY"
+
+http_request:
+  useragent: esphome/mspa
+  timeout: 5s
+  verify_ssl: false
+
+ota:
+  - platform: esphome
+
+api:
+  reboot_timeout: 0s
+
+logger:
+  level: DEBUG
+  baud_rate: 115200
+  logs:
+    wifi: INFO
+    api: INFO
+    ota: INFO
+    http_request: DEBUG
+
+web_server:
+  port: 80
+
+uart:
+  - id: uart_spa
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    rx_buffer_size: 1024
+  - id: uart_kbd
+    tx_pin: 13
+    rx_pin: 14
+    baud_rate: 9600
+    rx_buffer_size: 1024
+
+globals:
+  - id: pending_uart_id
+    type: int
+    initial_value: "0"
+  - id: pending_uart_val
+    type: int
+    initial_value: "0"
+  - id: eedomus_reachable
+    type: bool
+    initial_value: "false"
+  - id: eedomus_warn_logged
+    type: bool
+    initial_value: "false"
+  - id: last_temp_pushed
+    type: float
+    initial_value: "0.0"
+  - id: last_temp_push_time_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: last_consigne_pushed
+    type: float
+    initial_value: "0.0"
+  - id: last_consigne_push_time_ms
+    type: uint32_t
+    initial_value: "0"
+
+binary_sensor:
+  - platform: template
+    name: "Alerte Changement Filtre"
+    id: filt_alert
+    icon: "mdi:alert-decagram"
+    device_class: problem
+
+sensor:
+  - platform: template
+    name: "Temperature Eau"
+    id: cur_temp
+    unit_of_measurement: "┬░C"
+    update_interval: never
+    on_value:
+      then:
+        - lambda: |-
+            if ((strcmp("${eedomus_enabled}", "true") != 0) || !id(eedomus_reachable)) return;
+            float cur = x;
+            uint32_t now = millis();
+            if (fabs(cur - id(last_temp_pushed)) >= 0.5f || (now - id(last_temp_push_time_ms)) >= 60000) {
+              id(last_temp_pushed) = cur;
+              id(last_temp_push_time_ms) = now;
+              id(push_temp_eedomus).execute(${periph_temp_eau}, cur);
+            }
+
+# UI MIROIR : L'interface suit le bus (v5.0.0)
+switch:
+  - platform: template
+    name: "Filtration"
+    id: sw_f
+    icon: "mdi:filter-variant"
+    optimistic: false
+    turn_on_action:
+      - lambda: id(mspa_logic)->control_filtration(true);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_filtration}
+          p_val: 100
+    turn_off_action:
+      - lambda: id(mspa_logic)->control_filtration(false);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_filtration}
+          p_val: 0
+
+  - platform: template
+    name: "Chauffage"
+    id: sw_h
+    icon: "mdi:fire"
+    optimistic: false
+    turn_on_action:
+      - lambda: id(mspa_logic)->control_heating(true);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_chauffage}
+          p_val: 100
+    turn_off_action:
+      - lambda: id(mspa_logic)->control_heating(false);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_chauffage}
+          p_val: 0
+
+  - platform: template
+    name: "UVC"
+    id: sw_u
+    icon: "mdi:lightbulb-uv"
+    optimistic: false
+    turn_on_action:
+      - lambda: id(mspa_logic)->control_uvc(true);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_uvc}
+          p_val: 100
+    turn_off_action:
+      - lambda: id(mspa_logic)->control_uvc(false);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_uvc}
+          p_val: 0
+
+  - platform: template
+    name: "Verrouillage Clavier"
+    id: sw_lock
+    icon: "mdi:lock"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: id(mspa_logic)->set_lock(true);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_verrouillage}
+          p_val: 100
+    turn_off_action:
+      - lambda: id(mspa_logic)->set_lock(false);
+      - script.execute:
+          id: push_eedomus
+          p_id: ${periph_verrouillage}
+          p_val: 0
+
+select:
+  - platform: template
+    name: "Bulles"
+    id: sel_b
+    icon: "mdi:chart-bubble"
+    options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
+    optimistic: false
+    set_action:
+      then:
+        - lambda: |-
+            uint8_t val = (x == "Niveau1")?1:(x == "Niveau2")?2:(x == "Niveau3")?3:0;
+            id(mspa_logic)->control_bubbles(val);
+            id(push_eedomus).execute(${periph_bulles}, val);
+
+number:
+  - platform: template
+    name: "R├®glage Consigne"
+    id: test_setpoint
+    icon: "mdi:thermometer"
+    unit_of_measurement: "┬░C"
+    mode: box
+    min_value: 20
+    max_value: 40
+    step: 1.0
+    set_action:
+      then:
+        - lambda: |-
+            uint8_t val = (uint8_t)(x * 2.0f);
+            uint8_t buf[4] = {0xA5, 0x04, val, (uint8_t)(0xA5+0x04+val)};
+            id(uart_spa).write_array(buf, 4);
+
+interval:
+  - interval: 120s
+    then:
+      - if:
+          condition:
+            lambda: 'return (strcmp("${eedomus_enabled}", "true") == 0) && id(eedomus_reachable);'
+          then:
+            - script.execute: probe_eedomus
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: 'return (strcmp("${eedomus_enabled}", "true") == 0) && !id(eedomus_reachable);'
+          then:
+            - script.execute: probe_eedomus
+
+script:
+  - id: probe_eedomus
+    mode: single
+    then:
+      - http_request.get:
+          url: !lambda |-
+            static char url[64];
+            sprintf(url, "http://%s/api/", "${eedomus_host}");
+            return url;
+          on_response:
+            then:
+              - lambda: 'id(eedomus_reachable) = true;'
+          on_error:
+            then:
+              - lambda: 'id(eedomus_reachable) = false;'
+
+  - id: push_eedomus
+    mode: queued
+    parameters:
+      p_id: int
+      p_val: int
+    then:
+      - if:
+          condition:
+            lambda: 'return (strcmp("${eedomus_enabled}", "true") == 0) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%d", p_id, p_val);
+                  return url;
+
+  - id: push_temp_eedomus
+    mode: single
+    parameters:
+      p_id: int
+      p_val: float
+    then:
+      - if:
+          condition:
+            lambda: 'return (strcmp("${eedomus_enabled}", "true") == 0) && id(eedomus_reachable);'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  char url[256];
+                  sprintf(url, "http://${eedomus_host}/api/set?api_user=${eedomus_api_user}&api_secret=${eedomus_api_secret}&action=periph.value&periph_id=%d&value=%.1f", p_id, p_val);
+                  return url;

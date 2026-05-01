@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-6-9"
-  version: "1.6.9"
+  name: "mspa-sim-v1-7-1"
+  version: "1.7.1"
 
 esphome:
   name: ${name}
@@ -83,9 +83,8 @@ esphome:
                         id(uart_mb).write_array(f1B, 5);
                      }
                      if (sid == 0x04) { // CONSIGNE
-                        ESP_LOGD("SIM", "Commande CONSIGNE reçue: %.1f°C", val/2.0f);
-                        id(sim_setpoint) = (uint8_t)(val / 2.0f); 
-                        id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        ESP_LOGD("SIM", "Commande CONSIGNE reçue: %d°C", val + 30);
+                        id(sim_setpoint) = (uint8_t)(val + 30);                         id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
                         // ACK 1B (Conformité Événementielle)
                         uint8_t b_val = id(sim_bubbles);
                         uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
