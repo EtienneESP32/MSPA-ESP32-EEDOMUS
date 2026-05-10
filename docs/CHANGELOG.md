@@ -1,9 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
-### 2026-05-10 — Alerte Filtre & Sanctuarisation (v7.5.8-STABLE)
-- **Bugfix Alerte Filtre** : Séparation de la logique de Ghosting (multiplexage) et d'Alerte. L'icône de filtration ne s'allume plus si le moteur est OFF pendant un clignotement.
-- **Diagnostic** : Rétablissement de la remontée du capteur "Alerte Filtre" (Watchdog) par la mise à jour de la variable `is_blinking_f_`.
-- **Sanctuary** : Sanctuarisation du code via commit Git pour figer la version stable.
+### 2026-05-11 — État Fonctionnel "Clean State" (v7.5.9-STABLE)
+- **Décodage Sémantique** : Implémentation du verrouillage (Latching) basé sur le relais moteur. L'icône de filtration ne clignote plus dans l'UI lors d'une alerte (elle reste stable à OFF).
+- **Sniper Déchaîné** : Déclenchement du mécanisme d'injection sur la trame `0x1A`. Gain massif en réactivité pour les commandes de chauffe et filtration.
+- **Bugfix Sniper Fight** : Correction du conflit où le Sniper tentait de "tuer" l'alerte filtre, libérant ainsi la bande passante pour la commande de chauffe.
+- **Sanctuary** : Nouveau commit de sanctuarisation pour cette version charnière.
 
 
 ### 2026-05-10 — Sécurisation & Résilience Bus (v7.5.6-STABLE)

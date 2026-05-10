@@ -57,8 +57,8 @@ public:
   std::atomic<bool> real_f_{false}, real_h_{false}, real_u_{false};
   std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0};
   std::atomic<bool> physical_f_on_{false}, physical_h_on_{false};
-  std::atomic<bool> is_blinking_f_{false}, last_f_on_{false},
-      last_alert_val_{false};
+  std::atomic<bool> is_blinking_f_{false}, is_blinking_h_{false},
+      last_f_on_{false}, last_alert_val_{false};
   std::atomic<bool> bus_f_{false}, bus_h_{false}, bus_u_{false};
   std::atomic<int> bus_b_{0};
   std::atomic<uint32_t> last_on_f_{0}, last_injection_ms_{0};
@@ -74,7 +74,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.8-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.9-STABLE Starting...");
     uart_mutex_ = xSemaphoreCreateMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -353,15 +353,22 @@ protected:
         check_ghost(pf, lp_f, lc_f, g_f);
         check_ghost(ph, lp_h, lc_h, g_h);
 
-        if (pf != bus_f_.load()) bus_f_ = pf;
-        if (ph != bus_h_.load()) bus_h_ = ph;
+        is_blinking_f_ = g_f; // Atomic for watchdog alert detection
+        is_blinking_h_ = g_h;
 
-        is_blinking_f_ = g_f; // Update atomic for watchdog alert detection
+        // --- DÉCODAGE SÉMANTIQUE (CLEAN STATE) ---
+        // On verrouille l'état fonctionnel pour éviter le clignotement de l'UI et du Sniper
+        bool functional_f = pf; 
+        if (g_f) functional_f = physical_f_on_.load(); // ON si ghosting, OFF si alerte
+        
+        bool functional_h = ph;
+        if (g_h) functional_h = true; // Si ça clignote, c'est forcément actif
 
-        // Si Ghosting détecté ET relais actif, on force à ON (Latching)
-        // Sinon (Alerte ou repos), on respecte l'état brut du bit pf
-        bool final_f = (g_f && physical_f_on_.load()) ? true : pf;
-        bool final_h = g_h ? true : ph;
+        if (functional_f != bus_f_.load()) bus_f_ = functional_f;
+        if (functional_h != bus_h_.load()) bus_h_ = functional_h;
+
+        bool final_f = functional_f;
+        bool final_h = functional_h;
 
         // SILK FILTER: Stabilité 1500ms
         if (final_f != real_f_.load()) {
@@ -436,7 +443,7 @@ protected:
       }
 
       // Sniper Injection (Parallel) - Using BUS state for immediate feedback
-      if (id == 0x06 || id == 0x1B) {
+      if (id == 0x06 || id == 0x1B || id == 0x1A) {
         if (target_f_.load() != bus_f_.load() && retry_f_ > 0) {
           if (inject_cmd(0x02, target_f_.load() ? 0x01 : 0x00))
             retry_f_--;
