@@ -1,23 +1,14 @@
 substitutions:
-  name: "mspa-sim-v1-8-1-ghost"
-  version: "1.8.1-GHOST"
+  name: "mspa-sim-v1-7-1"
+  version: "1.7.1"
 
 esphome:
   name: ${name}
-  friendly_name: MSPA-Simulator-v${version}-BOUILLIE
+  friendly_name: MSPA-Simulator-v${version}-ATOMIC
   project:
     name: "etienne.mspa-simulator"
     version: ${version}
   
-  includes:
-    - mspa_sim_task_ghost.h
-
-  on_boot:
-    then:
-      - lambda: |-
-          auto* sim = new MspaSimTask();
-          App.register_component(sim);
-
   on_loop:
     then:
       - lambda: |-
@@ -40,51 +31,68 @@ esphome:
                      id(sim_uart_cmd_timer) = 10;
                      uint32_t now = millis();
 
+                     // --- 1. LOGIQUE RESET PAR APPUI LONG (0x02) ---
+                     // Extraite de la barrière anti-vibration pour capturer la haute fréquence (10Hz)
                      if (sid == 0x02) {
-                        if (now - id(sim_last_filt_cmd) < 500) { 
-                           if (now - id(sim_filt_hold_start) > 3000) { 
+                        if (now - id(sim_last_filt_cmd) < 500) { // Continuité de l'appui
+                           if (now - id(sim_filt_hold_start) > 3000) { // Seuil de 3 secondes atteint
                               if (id(sim_filter_alert)) {
                                  id(sim_filter_alert) = false;
-                                 ESP_LOGI("SIM", "RESET FILTRE : Appui long détecté !");
+                                 ESP_LOGI("SIM", "RESET FILTRE : Appui long détecté (>3s) ! Alerte effacée.");
                               }
                            }
-                        } else { id(sim_filt_hold_start) = now; }
+                        } else {
+                           id(sim_filt_hold_start) = now; // Nouveau début de séquence
+                        }
                         id(sim_last_filt_cmd) = now;
                      }
 
+                     // --- 2. LOGIQUE ACTIONS (Commutation avec Anti-Vibration 500ms) ---
                      if (now - id(sim_last_cmd_time) > 500) { 
-                        if (sid == 0x01) { 
+                        if (sid == 0x01) { // CHAUFFE
+                           ESP_LOGD("SIM", "Commande CHAUFFE reçue: %d", val);
                            if (val == 0) { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); }
                            else { if (id(sim_heat_phase) == 0) id(script_heat).execute(); else { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); } }
                            id(sim_last_cmd_time) = now;
                         }
-                        if (sid == 0x02) { 
+                        if (sid == 0x02) { // FILTRE (Action unique Toggle)
+                           ESP_LOGD("SIM", "Trame FILTRATION (0x02) reçue (VAL=%d)", val);
                            if (!id(sim_filter_alert)) {
                               if (val == 0) { id(sim_filt_active) = false; id(script_pump_cooldown).execute(); }
                               else { id(sim_filt_active) = !id(sim_filt_active); if (!id(sim_filt_active)) id(script_pump_cooldown).execute(); }
                               id(sim_last_cmd_time) = now;
+                           } else {
+                              ESP_LOGW("SIM", "FILTRE : Commande ignorée (Alerte Active, maintenez 3s pour Reset)");
                            }
                         }
-                        if (sid == 0x19) { 
+                        if (sid == 0x19) { // UVC
+                           ESP_LOGD("SIM", "Commande UVC reçue: %d", val);
                            if (val == 0) { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); }
                            else { if (id(sim_uvc_phase) == 0) id(script_uvc).execute(); else { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); } }
                            id(sim_last_cmd_time) = now;
                         }
                      }
-                     if (sid == 0x03) { 
-                        id(sim_bubbles) = val; id(script_update_bubbles_label).execute();
+                     // --- 3. COMMANDES ÉVÉNEMENTIELLES (Sans Anti-Vibration) ---
+                     if (sid == 0x03) { // BUBBLES
+                        ESP_LOGD("SIM", "Commande BULLES reçue: %d", val);
+                        id(sim_bubbles) = val;
+                        id(script_update_bubbles_label).execute();
+                        // ACK 1B (Conformité Événementielle)
                         uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
                         uint8_t f1B[5] = {0xA5, 0x1B, val, s_val, (uint8_t)(0xA5+0x1B+val+s_val)};
                         id(uart_mb).write_array(f1B, 5);
                      }
-                     if (sid == 0x04) { 
-                        id(sim_setpoint) = (uint8_t)(val + 30); id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                     if (sid == 0x04) { // CONSIGNE
+                        ESP_LOGD("SIM", "Commande CONSIGNE reçue: %d°C", val + 30);
+                        id(sim_setpoint) = (uint8_t)(val + 30);                         id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        // ACK 1B (Conformité Événementielle)
                         uint8_t b_val = id(sim_bubbles);
                         uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
                         uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
                         id(uart_mb).write_array(f1B, 5);
                      }
                      if (sid == 0x06) { id(sim_temp_bus).publish_state(val / 2.0f); }
+
                    } else { id(sim_err_4b)++; }
                 }
                 else if (target_len == 5) {
@@ -92,7 +100,8 @@ esphome:
                    if ((uint8_t)(0xA5 + sid + d1 + d2) == cs) {
                      id(sim_uart_cmd_timer) = 10;
                      if (sid == 0x1B) { 
-                        id(sim_bubbles) = d1; id(script_update_bubbles_label).execute();
+                        id(sim_bubbles) = d1;
+                        id(script_update_bubbles_label).execute();
                         id(sim_setpoint_bus).publish_state(d2 + 30);
                      }
                    } else { id(sim_err_5b)++; }
@@ -105,7 +114,8 @@ esphome:
               if ((uint8_t)(sid + val + d2 - 0x11) == cs) {
                 id(sim_uart_cmd_timer) = 10;
                 if (sid == 0x03 || sid == 0x11) { 
-                   id(sim_bubbles) = val; id(script_update_bubbles_label).execute();
+                   id(sim_bubbles) = val;
+                   id(script_update_bubbles_label).execute();
                 }
               } else { id(sim_err_5b)++; }
               idx = 0;
@@ -123,8 +133,6 @@ wifi:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
       manual_ip: { static_ip: 192.168.1.230, gateway: 192.168.1.1, subnet: 255.255.255.0 }
-
-api:
 
 ota:
   - platform: esphome
@@ -202,6 +210,9 @@ globals:
   - id: sim_last_filt_cmd
     type: uint32_t
     initial_value: "0"
+  - id: sim_last_f1A_bit
+    type: bool
+    initial_value: "false"
 
 script:
   - id: script_update_bubbles_label
@@ -234,10 +245,67 @@ script:
           if (!id(sim_filt_active) && id(sim_heat_phase) == 0 && id(sim_uvc_phase) == 0) id(sim_relay) = 0x00;
 
 interval:
-  - interval: 5s
+  - interval: 100ms
     then:
       - lambda: |-
-          ESP_LOGI("SIM", "Heartbeat DUAL CORE - Bus Active");
+          id(sim_cycle)++; if (id(sim_cycle) >= 10) id(sim_cycle) = 0;
+          uint8_t cycle = id(sim_cycle);
+
+          if (id(sim_uart_cmd_timer) > 0) { id(led_physical).turn_on(); id(sim_uart_cmd_timer)--; }
+          else if (id(sim_uart_activity_timer) > 0) { if (cycle%2==0) id(led_physical).turn_on(); else id(led_physical).turn_off(); id(sim_uart_activity_timer)--; }
+          else { id(led_physical).turn_off(); }
+
+          uint8_t f1A = 0x08;
+          bool blink_bit = (millis() % 1000 < 500);
+          if (id(sim_filter_alert)) {
+            if (blink_bit) f1A |= 0x01;
+          } else {
+            bool p_on = (id(sim_filt_active) || id(sim_heat_phase) > 0 || id(sim_uvc_phase) > 0);
+            if (p_on) { 
+              f1A |= 0x01; 
+              id(sim_relay) = 0x03; 
+              if (id(script_pump_cooldown).is_running()) id(script_pump_cooldown).stop(); 
+            }
+            if (id(sim_heat_phase) == 1) { if (cycle%10 < 5) f1A |= 0x02; } 
+            else if (id(sim_heat_phase) == 2) f1A |= 0x02;
+            if (id(sim_uvc_phase) == 1) { if (cycle%10 < 5) f1A |= 0x04; } 
+            else if (id(sim_uvc_phase) == 2) f1A |= 0x04;
+          }
+          if (f1A != 0x08) f1A &= ~0x08;
+
+          // ENVOI CYCLIQUE PUR
+          if (cycle == 2 || cycle == 7) {
+             uint8_t tr[4] = {0xA5, 0x1A, f1A, (uint8_t)(0xA5+0x1A+f1A)};
+             id(uart_mb).write_array(tr, 4);
+          }
+          if (cycle == 0) {
+             uint8_t tr[4] = {0xA5, 0x08, id(sim_relay), (uint8_t)(0xA5+0x08+id(sim_relay))}; 
+             id(uart_mb).write_array(tr, 4);
+          }
+          if (cycle == 4) {
+             uint8_t f06 = (uint8_t)(id(sim_temp) * 2.0);
+             uint8_t tr[4] = {0xA5, 0x06, f06, (uint8_t)(0xA5+0x06+f06)}; 
+             id(uart_mb).write_array(tr, 4);
+          }
+          if (cycle == 6) {
+             uint8_t b_val = id(sim_bubbles);
+             uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+             uint8_t tr[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+             id(uart_mb).write_array(tr, 5);
+          }
+          if (cycle == 9) {
+             uint8_t tr[4] = {0xA5, 0x12, 0x01, 0xB8}; 
+             id(uart_mb).write_array(tr, 4);
+          }
+          if (cycle == 5) {
+            uint8_t f0D[4] = {0xA5, 0x0D, 0x00, 0xB2}; id(uart_kbd).write_array(f0D, 4);
+          }
+
+          // MISE À JOUR GRAPHIQUE (CONSERVÉE)
+          id(sw_icon_heat).publish_state(f1A & 0x02); 
+          id(sw_icon_filt).publish_state(f1A & 0x01);
+          id(sw_icon_uvc).publish_state(f1A & 0x04);
+          id(sw_rel_pump).publish_state(id(sim_relay) == 0x03);
 
 web_server:
   port: 80
@@ -345,6 +413,7 @@ number:
     set_action: 
       lambda: |-
         id(sim_setpoint) = (uint8_t)x;
+        // Event-based 1B : Feedback UI
         uint8_t b_val = id(sim_bubbles);
         uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
         uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};

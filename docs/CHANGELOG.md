@@ -1,5 +1,18 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-10 — Alerte Filtre & Sanctuarisation (v7.5.8-STABLE)
+- **Bugfix Alerte Filtre** : Séparation de la logique de Ghosting (multiplexage) et d'Alerte. L'icône de filtration ne s'allume plus si le moteur est OFF pendant un clignotement.
+- **Diagnostic** : Rétablissement de la remontée du capteur "Alerte Filtre" (Watchdog) par la mise à jour de la variable `is_blinking_f_`.
+- **Sanctuary** : Sanctuarisation du code via commit Git pour figer la version stable.
+
+
+### 2026-05-10 — Sécurisation & Résilience Bus (v7.5.6-STABLE)
+- **Hardenization Core** : Augmentation de la pile (Stack) de la tâche UART à **8192 octets**. Prévient les crashs de type "Stack Overflow" lors du traitement de trames complexes ou de tempêtes de logs.
+- **Optimisation Performance** : Désactivation des logs `DEBUG` (0x08 et 0x1A) dans le flux UART haute fréquence. Gain de cycles CPU significatif et réduction de la latence du bus.
+- **Robustesse Labo** : Passage du niveau de log global à `INFO` dans le YAML pour éviter la saturation des sockets réseau lors des tests de stress (Ghosting).
+- **Maintenance** : Mise à jour de la bannière de démarrage et de l'identification logicielle pour suivi rigoureux des versions.
+
+
 ### 2026-04-29 — Stabilisation Réseau & Priorité (v6.9.18-PROD)
 - **Nettoyage UI (PROD)** : Masquage des capteurs de diagnostic (Lien Clavier, Lien Moteur, Démarré le) de l'interface Web pour alléger la charge du serveur local.
 - **Stabilité au Boot** : Ajout d'un délai de grâce de 30 secondes avant le démarrage de la file d'attente Eedomus pour laisser l'ESP (NTP, Web Server, Wi-Fi) se stabiliser sans saturer les sockets.

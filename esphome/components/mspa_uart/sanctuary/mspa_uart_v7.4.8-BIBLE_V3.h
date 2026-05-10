@@ -74,12 +74,12 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.8-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.4.8-FINAL Starting...");
     uart_mutex_ = xSemaphoreCreateMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
-                               "mspa_uart_task", 8192, this, 5,
-                               &uart_task_handle_, 1);
+                              "mspa_uart_task", 4096, this, 5,
+                              &uart_task_handle_, 1);
     }
   }
 
@@ -161,7 +161,8 @@ public:
                                                            : real_u_.load();
   }
   int get_display_b() {
-    return real_b_.load();
+    return (millis() - last_pump_start_ms_.load() < 30000) ? target_b_.load()
+                                                           : real_b_.load();
   }
 
   bool inject_cmd(uint8_t id, uint8_t val) {
@@ -194,17 +195,15 @@ protected:
     while (true) {
       bool activity = false;
       // SPA -> KBD (Transparent Immédiat)
-      if (uart_spa_->available()) {
-        if (xSemaphoreTake(uart_mutex_, pdMS_TO_TICKS(10))) {
-          while (uart_spa_->available()) {
-            uint8_t c;
-            if (uart_spa_->read_byte(&c)) {
-              uart_kbd_->write_byte(c);
-              process_machine(c, true);
-              activity = true;
-            }
+      while (uart_spa_->available()) {
+        uint8_t c;
+        if (uart_spa_->read_byte(&c)) {
+          if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
+            uart_kbd_->write_byte(c);
+            xSemaphoreGive(uart_mutex_);
           }
-          xSemaphoreGive(uart_mutex_);
+          process_machine(c, true);
+          activity = true;
         }
       }
       // KBD -> SPA (Filtré dans process_machine)
@@ -225,162 +224,168 @@ protected:
     uint32_t &last_ms = from_spa ? last_spa_ms_ : last_kbd_ms_;
     uint32_t now = millis();
 
-    if (idx > 0 && (now - last_ms > 100))
-      idx = 0; // Robust timeout
+    if (idx > 0 && (now - last_ms > 50)) {
+      // ESP_LOGD(TAG, "Timeout %s", from_spa ? "SPA" : "KBD");
+      idx = 0;
+    }
     last_ms = now;
 
-    // 1. SYNC: Only if we are at the start
-    if (idx == 0) {
-      if (c == 0xA5 || c == 0x00) {
-        buf[0] = c;
-        idx = 1;
-      }
+    // Synchro forcée sur 0xA5 (Style v6.9)
+    if (c == 0xA5 || (idx == 0 && c == 0x00)) {
+      buf[0] = c;
+      idx = 1;
       return;
     }
 
-    // 2. COLLECT: Fill the buffer
-    if (idx < 9) {
+    if (idx > 0 && idx < 9) {
       buf[idx++] = c;
-
-      // 3. IDENTIFY FRAME TYPE & LENGTH
-      int len = 0;
-      bool is_extended = (buf[0] == 0x00);
-      if (!is_extended) {
-        len = (buf[1] == 0x1B) ? 5 : 4;
-      } else {
-        len = 5; // Extended frames are always 5 bytes
-      }
-
-      // 4. PROCESS COMPLETE FRAME
-      if (idx == len) {
-        uint8_t cs = 0;
-        bool valid = false;
-
-        if (!is_extended) {
-          // Standard Checksum: Sum
+      if (buf[0] == 0xA5) {
+        int len = (buf[1] == 0x1B) ? 5 : 4; // Bible V3: Only 0x1B is 5 bytes
+        if (idx == len) {
+          uint8_t cs = 0;
           for (int i = 0; i < len - 1; i++)
             cs += buf[i];
-          valid = (buf[len - 1] == cs);
-        } else {
-          // Extended Checksum: Sum - 17 (0x11)
-          cs = (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11);
-          valid = (buf[len - 1] == cs);
-        }
-
-        if (valid) {
-          if (!from_spa) {
-            uint8_t id = buf[1];
-            uint8_t d1 = buf[2];
-
-            // FIREWALL & SYNC TARGETS
-            if (id == 0x01) { // HEAT
-              if (lock_) {
-                buf[2] = real_h_.load() ? 0x01 : 0x00;
-                buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_h_ = (d1 > 0);
-                retry_h_ = 5; // ARM SNIPER
+          if (buf[len - 1] == cs) {
+            if (!from_spa) {
+              ESP_LOGI(TAG, "KBD EVENT: ID=0x%02X D1=0x%02X (Len=%d)", buf[1],
+                       buf[2], len);
+              if (buf[1] == 0x02) { // Filtration (Bible v3)
+                if (lock_) {
+                  ESP_LOGW(TAG, "Firewall: Filter command BLOCKED (Locked)");
+                  buf[2] = real_f_.load() ? 0x01 : 0x00;
+                  uint8_t s = 0;
+                  for (int i = 0; i < len - 1; i++)
+                    s += buf[i];
+                  buf[len - 1] = s;
+                } else if (buf[2] != last_kbd_f_) {
+                  target_f_ = (buf[2] > 0);
+                  last_kbd_f_ = buf[2];
+                  retry_f_ = 0;
+                  ESP_LOGW(TAG, "KBD: User Filter Click!");
+                }
+              } else if (buf[1] == 0x01) { // Heating
+                if (lock_) {
+                  ESP_LOGW(TAG, "Firewall: Heat command BLOCKED (Locked)");
+                  buf[2] = real_h_.load() ? 0x01 : 0x00;
+                  uint8_t s = 0;
+                  for (int i = 0; i < len - 1; i++)
+                    s += buf[i];
+                  buf[len - 1] = s;
+                } else if (buf[2] != last_kbd_h_) {
+                  target_h_ = (buf[2] > 0);
+                  last_kbd_h_ = buf[2];
+                  retry_h_ = 0;
+                  ESP_LOGW(TAG, "KBD: User Heat Click!");
+                }
+              } else if (buf[1] == 0x19) { // UVC
+                if (lock_) {
+                  ESP_LOGW(TAG, "Firewall: UVC command BLOCKED (Locked)");
+                  buf[2] = real_u_.load() ? 0x01 : 0x00;
+                  uint8_t s = 0;
+                  for (int i = 0; i < len - 1; i++)
+                    s += buf[i];
+                  buf[len - 1] = s;
+                } else if (buf[2] != last_kbd_u_) {
+                  target_u_ = (buf[2] > 0);
+                  last_kbd_u_ = buf[2];
+                  retry_u_ = 0;
+                  ESP_LOGW(TAG, "KBD: User UVC Click!");
+                }
+              } else if (buf[1] == 0x03) { // Bubbles (Bible v3)
+                ESP_LOGW(TAG, "KBD: Bubble command (Transparent Test)");
+              } else if (buf[1] == 0x0D) {
+                // Heartbeat - Silenced
+              } else if (buf[1] != 0x04 && buf[1] != 0x1B) {
+                ESP_LOGD(TAG, "KBD: Raw ID 0x%02X D1=0x%02X", buf[1], buf[2]);
               }
-            } else if (id == 0x02) { // FILT
-              if (lock_) {
-                buf[2] = real_f_.load() ? 0x01 : 0x00;
-                buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_f_ = (d1 > 0);
-                retry_f_ = 5; // ARM SNIPER
+              if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
+                uart_spa_->write_array(buf, len);
+                xSemaphoreGive(uart_mutex_);
               }
-            } else if (id == 0x19) { // UVC
-              if (lock_) {
-                buf[2] = real_u_.load() ? 0x01 : 0x00;
-                buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_u_ = (d1 > 0);
-                retry_u_ = 5; // ARM SNIPER
-              }
-            } else if (id == 0x03 || (is_extended && id == 0x11)) { // BUBBLES
-              target_b_ = d1;
-              retry_b_ = 5; // ARM SNIPER
-              ESP_LOGI(TAG, "KBD: Bubble Command Detected (ID=0x%02X Lvl=%d)", id, d1);
-            } else if (id == 0x04) { // SETPOINT
-              // Passive capture of manual setpoint changes
             }
-
-            // FORWARD TO SPA
-            if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
-              uart_spa_->write_array(buf, len);
-              xSemaphoreGive(uart_mutex_);
-            }
+            handle_frame(buf[1], buf[2], (len == 5 ? buf[3] : 0), from_spa);
           } else {
-            // FORWARD TO KBD (Byte by byte is already done in uart_task, but here we handle logic)
+            ESP_LOGE(TAG, "CS Error %s: %02X!=%02X [Buf: %02X %02X %02X %02X]",
+                     from_spa ? "SPA" : "KBD", buf[len - 1], cs, buf[0], buf[1],
+                     buf[2], buf[3]);
           }
-
-          // COMMON FRAME HANDLING
-          handle_frame(buf[1], buf[2], (len == 5 ? buf[3] : 0), from_spa);
+          idx = 0;
         }
-        idx = 0; // Reset for next frame
       }
+    } else if (idx == 5 && buf[0] == 0x00) {
+      if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
+        if (from_spa)
+          uart_kbd_->write_array(buf, 5);
+        else
+          uart_spa_->write_array(buf, 5);
+        xSemaphoreGive(uart_mutex_);
+      }
+      idx = 0;
     }
     if (idx >= 10)
       idx = 0;
   }
 
   void handle_frame(uint8_t id, uint8_t d1, uint8_t d2, bool from_spa) {
+    ESP_LOGD(TAG, "Frame from %s: ID=0x%02X D1=0x%02X D2=0x%02X",
+             from_spa ? "SPA" : "KBD", id, d1, d2);
     uint32_t now = millis();
     if (from_spa) {
       last_spa_activity_ = now;
       if (id == 0x08) {
-        // ESP_LOGD(TAG, "Status 0x08 Bits: D1=%02X", d1);
+        ESP_LOGD(TAG, "Status 0x08 Bits: D1=%02X", d1);
         physical_f_on_ = (d1 & 0x01);
         physical_h_on_ = (d1 & 0x02);
       }
       if (id == 0x1A) {
-        // ESP_LOGD(TAG, "Status 0x1A Bits: D1=%02X", d1);
+        ESP_LOGD(TAG, "Status 0x1A Bits: D1=%02X", d1);
         bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
 
-        // --- DÉTECTION GHOST PATTERN (BIBLE V3.1) ---
-        auto check_ghost = [&](bool current, bool &last_state, uint32_t &last_change, bool &is_ghost) {
-          if (current != last_state) {
-            uint32_t delta = now - last_change;
-            if (delta > 50 && delta < 1500) is_ghost = true;
-            last_change = now;
-            last_state = current;
+        // Blinking Detection (v6.9 Logic)
+        if (pf) {
+          if (!last_f_on_ &&
+              (now - last_on_f_ > 400 && now - last_on_f_ < 1500)) {
+            is_blinking_f_ = true;
+            ESP_LOGW(TAG, "Filter Icon BLINKING detected!");
+          } else if (!last_f_on_)
+            is_blinking_f_ = false;
+          last_on_f_ = now;
+        } else if (now - last_on_f_ > 1500) {
+          if (is_blinking_f_)
+            ESP_LOGD(TAG, "Filter Icon stopped blinking.");
+          is_blinking_f_ = false;
+        }
+        last_f_on_ = pf;
+
+        if (pf != bus_f_.load()) {
+          bus_f_ = pf;
+        }
+        // SILK FILTER: 1500ms stability based on Bible v3
+        if (pf != real_f_.load()) {
+          if (now - last_f_change_ms_ > 1500) {
+            real_f_ = pf;
+            if (retry_f_ == 0)
+              target_f_ = pf;
+            if (f_switch_)
+              f_switch_->publish_state(pf);
           }
-          if (now - last_change > 2000) is_ghost = false;
-        };
-
-        static bool lp_f = false, lp_h = false, g_f = false, g_h = false;
-        static uint32_t lc_f = 0, lc_h = 0;
-        check_ghost(pf, lp_f, lc_f, g_f);
-        check_ghost(ph, lp_h, lc_h, g_h);
-
-        if (pf != bus_f_.load()) bus_f_ = pf;
-        if (ph != bus_h_.load()) bus_h_ = ph;
-
-        is_blinking_f_ = g_f; // Update atomic for watchdog alert detection
-
-        // Si Ghosting détecté ET relais actif, on force à ON (Latching)
-        // Sinon (Alerte ou repos), on respecte l'état brut du bit pf
-        bool final_f = (g_f && physical_f_on_.load()) ? true : pf;
-        bool final_h = g_h ? true : ph;
-
-        // SILK FILTER: Stabilité 1500ms
-        if (final_f != real_f_.load()) {
-          if (now - last_f_change_ms_ > 1500 || g_f) {
-            real_f_ = final_f;
-            last_f_change_ms_ = now;
-            if (retry_f_ == 0) target_f_ = final_f;
-            if (f_switch_) f_switch_->publish_state(final_f);
+        } else {
+          last_f_change_ms_ = now;
+        }
+        if (ph != bus_h_.load()) {
+          bus_h_ = ph;
+        }
+        if (ph != real_h_.load()) {
+          if (now - last_h_change_ms_ > 1500) {
+            real_h_ = ph;
+            if (retry_h_ == 0)
+              target_h_ = ph;
+            if (h_switch_)
+              h_switch_->publish_state(ph);
           }
-        } else { last_f_change_ms_ = now; }
-
-        if (final_h != real_h_.load()) {
-          if (now - last_h_change_ms_ > 1500 || g_h) {
-            real_h_ = final_h;
-            last_h_change_ms_ = now;
-            if (retry_h_ == 0) target_h_ = final_h;
-            if (h_switch_) h_switch_->publish_state(final_h);
-          }
-        } else { last_h_change_ms_ = now; }
+        } else {
+          last_h_change_ms_ = now;
+        }
         if (pu != bus_u_.load()) {
           bus_u_ = pu;
         }

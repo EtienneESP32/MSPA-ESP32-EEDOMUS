@@ -1,0 +1,101 @@
+substitutions:
+  name: "mspa-sim-v1-8-0"
+  version: "1.8.0"
+
+esphome:
+  name: ${name}
+  friendly_name: MSPA-Simulator-v${version}-DUALCORE
+  includes:
+    - mspa_sim_task.h
+  on_boot:
+    then:
+      - lambda: |-
+          auto* sim = new MspaSimTask();
+          App.register_component(sim);
+
+esp32:
+  board: esp32dev
+  framework: { type: arduino }
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      manual_ip: { static_ip: 192.168.1.230, gateway: 192.168.1.1, subnet: 255.255.255.0 }
+
+ota:
+  - platform: esphome
+
+logger:
+  level: DEBUG
+  baud_rate: 0 
+
+uart:
+  - id: uart_mb  
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 9600
+  - id: uart_kbd
+    tx_pin: GPIO13
+    rx_pin: GPIO14
+    baud_rate: 9600
+
+globals:
+  - id: sim_temp
+    type: float
+    initial_value: "10.0"
+  - id: sim_relay
+    type: uint8_t
+    initial_value: "0x00"
+  - id: sim_bubbles
+    type: uint8_t
+    initial_value: "0x00"
+  - id: sim_setpoint
+    type: uint8_t
+    initial_value: "38"
+  - id: sim_cycle
+    type: uint8_t
+    initial_value: "0"
+  - id: sim_heat_phase
+    type: int
+    initial_value: "0"
+  - id: sim_uvc_phase
+    type: int
+    initial_value: "0"
+  - id: sim_filt_active
+    type: bool
+    initial_value: "false"
+  - id: sim_filter_alert
+    type: bool
+    initial_value: "false"
+
+web_server:
+  port: 80
+
+sensor:
+  - platform: template
+    name: "LUE: Temp Eau (Bus)"
+    id: sim_temp_bus
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+
+number:
+  - platform: template
+    name: "SIM: Temp Eau"
+    id: sim_temp_num
+    mode: box
+    initial_value: 10.0
+    min_value: 10
+    max_value: 50
+    step: 0.5
+    set_action: { lambda: id(sim_temp) = x; }
+  - platform: template
+    name: "SIM: Consigne"
+    id: sim_setpoint_num
+    mode: box
+    initial_value: 38
+    min_value: 20
+    max_value: 40
+    step: 1.0
+    set_action: { lambda: id(sim_setpoint) = (uint8_t)x; }

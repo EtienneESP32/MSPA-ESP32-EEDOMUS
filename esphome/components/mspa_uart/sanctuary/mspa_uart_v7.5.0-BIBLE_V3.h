@@ -74,12 +74,12 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.8-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.0-FINAL-B3 Starting...");
     uart_mutex_ = xSemaphoreCreateMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
-                               "mspa_uart_task", 8192, this, 5,
-                               &uart_task_handle_, 1);
+                              "mspa_uart_task", 4096, this, 5,
+                              &uart_task_handle_, 1);
     }
   }
 
@@ -194,17 +194,15 @@ protected:
     while (true) {
       bool activity = false;
       // SPA -> KBD (Transparent Immédiat)
-      if (uart_spa_->available()) {
-        if (xSemaphoreTake(uart_mutex_, pdMS_TO_TICKS(10))) {
-          while (uart_spa_->available()) {
-            uint8_t c;
-            if (uart_spa_->read_byte(&c)) {
-              uart_kbd_->write_byte(c);
-              process_machine(c, true);
-              activity = true;
-            }
+      while (uart_spa_->available()) {
+        uint8_t c;
+        if (uart_spa_->read_byte(&c)) {
+          if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
+            uart_kbd_->write_byte(c);
+            xSemaphoreGive(uart_mutex_);
           }
-          xSemaphoreGive(uart_mutex_);
+          process_machine(c, true);
+          activity = true;
         }
       }
       // KBD -> SPA (Filtré dans process_machine)
@@ -325,62 +323,65 @@ protected:
   }
 
   void handle_frame(uint8_t id, uint8_t d1, uint8_t d2, bool from_spa) {
+    ESP_LOGD(TAG, "Frame from %s: ID=0x%02X D1=0x%02X D2=0x%02X",
+             from_spa ? "SPA" : "KBD", id, d1, d2);
     uint32_t now = millis();
     if (from_spa) {
       last_spa_activity_ = now;
       if (id == 0x08) {
-        // ESP_LOGD(TAG, "Status 0x08 Bits: D1=%02X", d1);
+        ESP_LOGD(TAG, "Status 0x08 Bits: D1=%02X", d1);
         physical_f_on_ = (d1 & 0x01);
         physical_h_on_ = (d1 & 0x02);
       }
       if (id == 0x1A) {
-        // ESP_LOGD(TAG, "Status 0x1A Bits: D1=%02X", d1);
+        ESP_LOGD(TAG, "Status 0x1A Bits: D1=%02X", d1);
         bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
 
-        // --- DÉTECTION GHOST PATTERN (BIBLE V3.1) ---
-        auto check_ghost = [&](bool current, bool &last_state, uint32_t &last_change, bool &is_ghost) {
-          if (current != last_state) {
-            uint32_t delta = now - last_change;
-            if (delta > 50 && delta < 1500) is_ghost = true;
-            last_change = now;
-            last_state = current;
+        // Blinking Detection (v6.9 Logic)
+        if (pf) {
+          if (!last_f_on_ &&
+              (now - last_on_f_ > 400 && now - last_on_f_ < 1500)) {
+            is_blinking_f_ = true;
+            ESP_LOGW(TAG, "Filter Icon BLINKING detected!");
+          } else if (!last_f_on_)
+            is_blinking_f_ = false;
+          last_on_f_ = now;
+        } else if (now - last_on_f_ > 1500) {
+          if (is_blinking_f_)
+            ESP_LOGD(TAG, "Filter Icon stopped blinking.");
+          is_blinking_f_ = false;
+        }
+        last_f_on_ = pf;
+
+        if (pf != bus_f_.load()) {
+          bus_f_ = pf;
+        }
+        // SILK FILTER: 1500ms stability based on Bible v3
+        if (pf != real_f_.load()) {
+          if (now - last_f_change_ms_ > 1500) {
+            real_f_ = pf;
+            if (retry_f_ == 0)
+              target_f_ = pf;
+            if (f_switch_)
+              f_switch_->publish_state(pf);
           }
-          if (now - last_change > 2000) is_ghost = false;
-        };
-
-        static bool lp_f = false, lp_h = false, g_f = false, g_h = false;
-        static uint32_t lc_f = 0, lc_h = 0;
-        check_ghost(pf, lp_f, lc_f, g_f);
-        check_ghost(ph, lp_h, lc_h, g_h);
-
-        if (pf != bus_f_.load()) bus_f_ = pf;
-        if (ph != bus_h_.load()) bus_h_ = ph;
-
-        is_blinking_f_ = g_f; // Update atomic for watchdog alert detection
-
-        // Si Ghosting détecté ET relais actif, on force à ON (Latching)
-        // Sinon (Alerte ou repos), on respecte l'état brut du bit pf
-        bool final_f = (g_f && physical_f_on_.load()) ? true : pf;
-        bool final_h = g_h ? true : ph;
-
-        // SILK FILTER: Stabilité 1500ms
-        if (final_f != real_f_.load()) {
-          if (now - last_f_change_ms_ > 1500 || g_f) {
-            real_f_ = final_f;
-            last_f_change_ms_ = now;
-            if (retry_f_ == 0) target_f_ = final_f;
-            if (f_switch_) f_switch_->publish_state(final_f);
+        } else {
+          last_f_change_ms_ = now;
+        }
+        if (ph != bus_h_.load()) {
+          bus_h_ = ph;
+        }
+        if (ph != real_h_.load()) {
+          if (now - last_h_change_ms_ > 1500) {
+            real_h_ = ph;
+            if (retry_h_ == 0)
+              target_h_ = ph;
+            if (h_switch_)
+              h_switch_->publish_state(ph);
           }
-        } else { last_f_change_ms_ = now; }
-
-        if (final_h != real_h_.load()) {
-          if (now - last_h_change_ms_ > 1500 || g_h) {
-            real_h_ = final_h;
-            last_h_change_ms_ = now;
-            if (retry_h_ == 0) target_h_ = final_h;
-            if (h_switch_) h_switch_->publish_state(final_h);
-          }
-        } else { last_h_change_ms_ = now; }
+        } else {
+          last_h_change_ms_ = now;
+        }
         if (pu != bus_u_.load()) {
           bus_u_ = pu;
         }
