@@ -74,7 +74,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.9-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.10-DEBUG Starting...");
     uart_mutex_ = xSemaphoreCreateMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -364,8 +364,14 @@ protected:
         bool functional_h = ph;
         if (g_h) functional_h = true; // Si ça clignote, c'est forcément actif
 
-        if (functional_f != bus_f_.load()) bus_f_ = functional_f;
-        if (functional_h != bus_h_.load()) bus_h_ = functional_h;
+        if (functional_f != bus_f_.load()) {
+            bus_f_ = functional_f;
+            ESP_LOGI(TAG, "BUS: Filtration -> %s", functional_f ? "ON" : "OFF");
+        }
+        if (functional_h != bus_h_.load()) {
+            bus_h_ = functional_h;
+            ESP_LOGI(TAG, "BUS: Heating -> %s", functional_h ? "ON" : "OFF");
+        }
 
         bool final_f = functional_f;
         bool final_h = functional_h;
@@ -376,6 +382,7 @@ protected:
             real_f_ = final_f;
             last_f_change_ms_ = now;
             if (retry_f_ == 0) target_f_ = final_f;
+            else ESP_LOGD(TAG, "Sniper: Filtration retry in progress (%d)", retry_f_.load());
             if (f_switch_) f_switch_->publish_state(final_f);
           }
         } else { last_f_change_ms_ = now; }
@@ -385,6 +392,7 @@ protected:
             real_h_ = final_h;
             last_h_change_ms_ = now;
             if (retry_h_ == 0) target_h_ = final_h;
+            else ESP_LOGD(TAG, "Sniper: Heating retry in progress (%d)", retry_h_.load());
             if (h_switch_) h_switch_->publish_state(final_h);
           }
         } else { last_h_change_ms_ = now; }

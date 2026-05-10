@@ -1,5 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Diagnostic Commandes (v7.5.10-DEBUG)
+- **Log Diagnostic** : Activation de logs INFO sur les changements d'état du bus (`BUS: Filtration -> ON`) et sur les injections Sniper.
+- **Audit Sniper** : Suivi des réessais pour comprendre pourquoi certaines commandes "ne partent pas".
+
+
 ### 2026-05-11 — État Fonctionnel "Clean State" (v7.5.9-STABLE)
 - **Décodage Sémantique** : Implémentation du verrouillage (Latching) basé sur le relais moteur. L'icône de filtration ne clignote plus dans l'UI lors d'une alerte (elle reste stable à OFF).
 - **Sniper Déchaîné** : Déclenchement du mécanisme d'injection sur la trame `0x1A`. Gain massif en réactivité pour les commandes de chauffe et filtration.
