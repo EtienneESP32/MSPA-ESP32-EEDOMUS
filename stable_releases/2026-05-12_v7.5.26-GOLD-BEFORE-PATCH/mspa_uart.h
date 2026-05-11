@@ -66,34 +66,27 @@ public:
   std::atomic<bool> is_blinking_f_{false}, is_blinking_h_{false};
   std::atomic<bool> bus_f_{false}, bus_h_{false}, bus_u_{false};
   std::atomic<int> bus_b_{0};
-  std::atomic<uint32_t> last_on_f_{0}, last_on_h_{0}, last_on_u_{0};
   std::atomic<uint32_t> last_spa_ms_{0}, last_kbd_ms_{0};
 
   void enqueue_eedomus(int p_id, float val, bool is_f, bool force = false) {
     if (!eedomus_enabled_.load())
       return;
 
-    // --- DÉDOUBLONNAGE INTELLIGENT (Nettoie les deux files) ---
-    auto clear_from = [&](std::deque<EedomusRequest> &q) {
-      for (auto it = q.begin(); it != q.end(); ++it) {
-        if (it->periph_id == p_id) {
-          q.erase(it);
-          return;
-        }
+    // --- DÉDOUBLONNAGE INTELLIGENT ---
+    // On retire toute valeur précédente pour ce même périphérique dans la file
+    for (auto it = eedomus_queue_.begin(); it != eedomus_queue_.end(); ++it) {
+      if (it->periph_id == p_id) {
+        eedomus_queue_.erase(it);
+        break;
       }
-    };
-    clear_from(queue_actions_);
-    clear_from(queue_status_);
-
-    if (force) {
-      if (queue_actions_.size() > 10)
-        queue_actions_.pop_front();
-      queue_actions_.push_back({p_id, val, is_f});
-    } else {
-      if (queue_status_.size() > 15)
-        queue_status_.pop_front();
-      queue_status_.push_back({p_id, val, is_f});
     }
+
+    if (eedomus_queue_.size() > 25)
+      eedomus_queue_.pop_back();
+    if (force)
+      eedomus_queue_.push_front({p_id, val, is_f});
+    else
+      eedomus_queue_.push_back({p_id, val, is_f});
   }
 
   bool inject_cmd(uint8_t id, uint8_t val) {
@@ -151,10 +144,10 @@ public:
       run_watchdog();
     }
 
-    // Eedomus Dispatcher (Core 0 - Stratégie Priorisée FIFO)
+    // Eedomus Dispatcher (Core 0 - Stratégie Douce)
     if (eedomus_enabled_.load() && !http_busy_.load() &&
-        (now - last_http_ms_ > 5000)) {
-      
+        !eedomus_queue_.empty() && (now - last_http_ms_ > 5000)) {
+
       // --- SOCKET GUARD ---
       uint32_t free_heap = esp_get_free_heap_size();
       if (free_heap < 48000) {
@@ -163,26 +156,15 @@ public:
         return;
       }
 
-      EedomusRequest req;
-      bool found = false;
+      EedomusRequest req = eedomus_queue_.front();
+      eedomus_queue_.pop_front();
 
-      if (!queue_actions_.empty()) {
-        req = queue_actions_.front();
-        queue_actions_.pop_front();
-        found = true;
-      } else if (!queue_status_.empty()) {
-        req = queue_status_.front();
-        queue_status_.pop_front();
-        found = true;
-      }
+      last_http_ms_ = now;
+      last_http_start_ms_ = now;
 
-      if (found) {
-        last_http_ms_ = now;
-        last_http_start_ms_ = now;
-        if (eedomus_callback_) {
-          set_http_busy(true);
-          eedomus_callback_(req.periph_id, req.value, req.is_float);
-        }
+      if (eedomus_callback_) {
+        set_http_busy(true);
+        eedomus_callback_(req.periph_id, req.value, req.is_float);
       }
     }
   }
@@ -238,8 +220,7 @@ protected:
   uint32_t last_http_ms_{0}, last_http_start_ms_{0};
   uint32_t last_f_change_ms_{0}, last_h_change_ms_{0}, last_u_change_ms_{0},
       last_b_change_ms_{0}, last_set_change_ms_{0};
-  std::deque<EedomusRequest> queue_actions_;
-  std::deque<EedomusRequest> queue_status_;
+  std::deque<EedomusRequest> eedomus_queue_;
   std::function<void(int, float, bool)> eedomus_callback_;
 
   uint8_t kbd_buf_[10], kbd_idx_{0};
@@ -351,26 +332,15 @@ protected:
   }
 
   void handle_frame(uint8_t id, uint8_t d1, uint8_t d2, bool from_spa) {
-    uint32_t now = millis();
-
-    if (!from_spa) {
-      // PHASE 1: NON-DICTATURE (Priorité Utilisateur)
-      target_f_ = real_f_.load();
-      target_h_ = real_h_.load();
-      target_u_ = real_u_.load();
-      target_b_ = (int)real_b_.load();
-      retry_f_ = 0; retry_h_ = 0; retry_u_ = 0; retry_b_ = 0;
+    if (!from_spa)
       return;
-    }
-
+    uint32_t now = millis();
     if (id == 0x08) {
       physical_f_on_ = (d1 & 0x01);
       physical_h_on_ = (d1 & 0x02);
     }
     if (id == 0x1A) {
       bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
-
-      // Détection du clignotement (Nécessaire avant l'état final)
       auto detect_ghost = [&](bool current, bool &last_state,
                               uint32_t &last_change,
                               std::atomic<bool> &is_ghost) {
@@ -381,37 +351,28 @@ protected:
           last_change = now;
           last_state = current;
         }
-        if (now - last_change > 3500)
+        if (now - last_change > 2000)
           is_ghost = false;
       };
       detect_ghost(pf, lp_f_, lc_f_, is_blinking_f_);
       detect_ghost(ph, lp_h_, lc_h_, is_blinking_h_);
 
-      // PHASE 3: DÉTECTEUR D'ENVELOPPE (Latching 3s)
-      if (pf) last_on_f_ = now;
-      if (ph) last_on_h_ = now;
-      if (pu) last_on_u_ = now;
+      bool func_f = pf;
+      if (is_blinking_f_.load())
+        func_f = physical_f_on_.load();
+      bool func_h = ph;
+      if (is_blinking_h_.load())
+        func_h = true;
 
-      bool env_f = (now - last_on_f_.load() < 3000);
-      bool env_h = (now - last_on_h_.load() < 3000);
-      bool env_u = (now - last_on_u_.load() < 3000);
+      bus_f_ = func_f;
+      bus_h_ = func_h;
+      bus_u_ = pu;
 
-      // --- RÈGLE HYBRIDE: PRIORITÉ PHYSIQUE SI CLIGNOTEMENT ---
-      bool final_f = is_blinking_f_.load() ? physical_f_on_.load() : env_f;
-      bool final_h = is_blinking_h_.load() ? physical_h_on_.load() : env_h;
-      bool final_u = env_u;
-
-      // Mise à jour de l'UI (L'enveloppe stabilise, le physique prime en alerte)
-      update_ui_switch(now, final_f, real_f_, last_f_change_ms_, f_switch_, false);
-      update_ui_switch(now, final_h, real_h_, last_h_change_ms_, h_switch_, false);
-      update_ui_switch(now, final_u, real_u_, last_u_change_ms_, u_switch_, false);
-
-      bus_f_ = env_f;
-      bus_h_ = env_h;
-      bus_u_ = env_u;
-
-      int pb = (d1 >> 4) & 0x03;
-      if (pb != bus_b_.load()) bus_b_ = pb;
+      update_ui_switch(now, func_f, real_f_, last_f_change_ms_, f_switch_,
+                       is_blinking_f_.load());
+      update_ui_switch(now, func_h, real_h_, last_h_change_ms_, h_switch_,
+                       is_blinking_h_.load());
+      update_ui_switch(now, pu, real_u_, last_u_change_ms_, u_switch_, false);
     }
     if (id == 0x1B) {
       int pb = d1;
@@ -465,9 +426,9 @@ protected:
       if (now - last_change > 1500 || force) {
         real = current;
         last_change = now;
-        ESP_LOGI(TAG, "UI: %s -> %s (Filter: ENV)",
+        ESP_LOGI(TAG, "UI: %s -> %s (Filter: %s)",
                  sw ? sw->get_name().c_str() : "Switch", current ? "ON" : "OFF",
-                 force ? "GHOST" : "ENV");
+                 force ? "GHOST" : "SILK");
         if (sw)
           sw->publish_state(current);
       }

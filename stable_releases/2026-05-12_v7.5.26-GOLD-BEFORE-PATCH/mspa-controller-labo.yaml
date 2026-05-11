@@ -1,10 +1,9 @@
-# Controleur MSPA – Version 7.5.37-DIAMOND-FINAL
-# [EVOLUTION] Phase 2: Double File FIFO Priorisée
-# [LOGIQUE] Flux Action (Front) / Flux Status (Back)
-# [DATE] 12/05/2026 00:38
+# Controleur MSPA – Version 7.1.9-SANCTUARY-PURE (Heritage Restoration)
+# RESTAURATION TOTALE - RÉGLAGES LABO
+# LOGIQUE CLONE SANCTUARY v6.7.8
 
 substitutions:
-  mspa_version: "7.5.37-DIAMOND"
+  mspa_version: "7.5.26-ULTRA-RESILIENT"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user

@@ -1,5 +1,11 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-12 — DIAMOND FINAL (v7.5.37)
+- **Phase 2 (Double FIFO)** : Séparation priorisée des flux Action et Status.
+- **Phase 1 (Non-Dictature)** : Synchronisation clavier physique / cibles.
+- **Phase 3 (Hybride)** : Filtre d'Enveloppe (3s) + Priorité Moteur Physique.
+- **Stabilisation Sockets** : Nettoyage radical des processus et protection Socket Guard (48K).
+
 ### 2026-05-11 — Atomic Sanctuary & Lock-Free Core (v7.5.26-ULTRA-RESILIENT)
 - **Architecture Lock-Free** : Suppression totale des verrous Mutex sur le relais d'octets UART. Le Cœur 1 (Sanctuaire) est désormais totalement indépendant du Cœur 0 (Réseau).
 - **Variables Atomiques (`std::atomic`)** : Migration de tous les états partagés (Commandes Sniper, Températures, Flags) vers des types atomiques. Élimine tout risque de blocage ou de "Race Condition" entre les deux cœurs.
