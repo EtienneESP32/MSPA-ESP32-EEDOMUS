@@ -82,10 +82,19 @@ class MspaSimTask : public Component {
             uint8_t f0D[4] = {0xA5, 0x0D, 0x00, 0xB2}; id(uart_kbd).write_array(f0D, 4);
           }
 
-          // 3. MISE À JOUR UI (Miroirs stables)
-          id(sw_icon_heat).publish_state(heat_ph > 0); 
-          id(sw_icon_filt).publish_state(filt || heat_ph > 0 || uvc_ph > 0);
-          id(sw_icon_uvc).publish_state(uvc_ph > 0);
+          // 3. MISE À JOUR UI (Authentic Blinking for Phase 1 & Alert)
+          bool ui_filt = (f1A & 0x01);
+          if (heat_ph == 2 || uvc_ph == 2) ui_filt = true; // Stable si GHOST actif
+
+          bool ui_heat = (f1A & 0x02);
+          if (heat_ph == 2) ui_heat = true; // Stable si GHOST fixe
+
+          bool ui_uvc = (f1A & 0x04);
+          if (uvc_ph == 2) ui_uvc = true; // Stable si UVC fixe
+
+          id(sw_icon_filt).publish_state(ui_filt);
+          id(sw_icon_heat).publish_state(ui_heat);
+          id(sw_icon_uvc).publish_state(ui_uvc);
           id(sw_rel_pump).publish_state(id(sim_relay) == 0x03);
 
           vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz

@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v1-8-1-ghost"
-  version: "1.8.1-GHOST"
+  name: "mspa-sim-v1-8-2-authentic"
+  version: "1.8.2-AUTHENTIC"
 
 esphome:
   name: ${name}
