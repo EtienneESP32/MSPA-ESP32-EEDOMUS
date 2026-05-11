@@ -108,4 +108,6 @@ Le pire cas d'usage a été modélisé : **Eedomus injoignable + Bombardement de
 *   **Latence UI** : < 1s (Malgré des timeout de 400ms en arrière-plan).
 
 ---
-*Sanctuarisé le 11/05/2026 - Version 7.5.25-LABO-RESILIENT*
+---
+*Sanctuarisé le 12/05/2026 - Version DIAMOND (v7.5.37)*
+**CONCLUSION FINALE** : La théorie du Détecteur d'Enveloppe (Latching 3s) a permis de résoudre 100% des instabilités visuelles sur le LABO. Couplée à la règle de Non-Dictature, elle offre le meilleur compromis entre automatisation et contrôle humain.

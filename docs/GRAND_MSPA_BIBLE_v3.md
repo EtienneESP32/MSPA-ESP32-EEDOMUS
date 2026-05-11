@@ -1,10 +1,10 @@
-# LA GRANDE BIBLE MSPA (v3.0)
+# LA GRANDE BIBLE MSPA (v3.5)
 ## Le Référentiel de Vérité Absolue – Architecture & Protocole
 
 > [!IMPORTANT]
-> **Version de Référence Logicial : 6.9.30-PROD**  
-> **État du Projet : Stable & Network Optimized**  
-> Ce document synthétise 100% du savoir acquis sur le reverse-engineering et la stabilisation du contrôleur MSPA.
+> **Version de Référence : v7.5.37-DIAMOND-FINAL**  
+> **État du Projet : Certified Diamond / Master Sanctuary v2**  
+> Ce document est la synthèse ultime de l'intelligence acquise sur la résilience dual-core et la gestion des flux asynchrones.
 
 ---
 
@@ -103,30 +103,28 @@ Pour briser la limite historique des 30°C, nous utilisons la stratégie **`int8
 
 ---
 
-## 4. Architecture de Résilience (ESP-IDF)
+### A. Master Sanctuary v2 (Dual-Core & Atomics)
+L'ESP32 est configuré pour garantir que le réseau ne puisse jamais ralentir le bus UART :
+*   **Core 1 (uart_task)** : Sanctuaire inviolable dédié à 100% au bus série. Utilise des variables **`std::atomic`** pour communiquer ses états sans jamais utiliser de Mutex bloquant dans les chemins critiques.
+*   **Core 0 (Main Loop)** : Gère le WiFi, le serveur Web et Eedomus. 
+*   **Non-Blocking Logic** : Le Cœur 1 lit et écrit à 10Hz. Si le Cœur 0 est gelé par un timeout réseau, le Cœur 1 continue de piloter le SPA sans aucune gigue.
 
-L'ESP32 est un colosse aux pieds d'argile face au réseau. Voici nos protections :
-
-### A. Isolation des Tâches (Anti-Blocking)
-*   **Core 1 (uart_task)** : Dédié à 100% au bus série. Ne contient **AUCUNE** logique réseau. Utilise des Mutex pour les injections.
-*   **Core 0 (Main Loop)** : Gère ESPHome, le Web et Eedomus.
-*   **Asynchronisme** : Les requêtes HTTP vers Eedomus sont déléguées au `App.scheduler` pour ne jamais bloquer la boucle principale.
-
-### B. Gestion des Sockets (La limite des 16)
-Pour éviter l'erreur de socket **(23)** :
-*   **Timeout Agressif** : 2.0s maximum.
-*   **Fermeture Flash** : `capture_response: false` pour libérer la socket immédiatement après le "Push".
-*   **Throttle** : Un délai de 5s minimum entre deux envois Eedomus. 
-    > [!NOTE]
-    > Historiquement fixé à 15s, ce délai a été réduit à 5s suite à l'activation des **16 sockets** (max_connections) sur ESP-IDF, permettant une réactivité accrue sans risque de saturation (Error 23).
+### B. Gestion des Flux (La Double File FIFO)
+Pour une fluidité totale de l'interface Eedomus :
+*   **Queue Actions (High Priority)** : Stocke les clics utilisateur. Toujours traitée en premier.
+*   **Queue Status (Low Priority)** : Stocke les températures et l'uptime.
+*   **Socket Guard** : Suspension automatique de tout envoi vers Eedomus si la Heap descend sous **48 Ko** pour préserver la stabilité du système.
+*   **HTTP Fail-Safe** : Libération forcée du verrou réseau après **10 secondes** pour éviter l'asphyxie du Cœur 0.
 
 
 ---
 
-## 5. Logique "Sniper" & "Silk Filter"
+## 5. Logique "Sniper" & "Envelope Detector"
 
-*   **Sniper Shot** : Le contrôleur n'envoie pas de commandes en boucle. Il "tire" 3 à 5 fois avec précision dès qu'un écart est détecté entre la cible et le réel.
-*   **Silk Filter** : Une fenêtre de lissage de **1500ms** filtre les messages du bus pour éviter les rebonds d'IHM pendant les phases de clignotement d'alerte.
+*   **Sniper Shot** : Le contrôleur n'envoie pas de commandes en boucle. Il "tire" 10 à 15 fois avec précision dès qu'un écart est détecté, pour forcer le SPA à obéir.
+*   **Règle de Non-Dictature** : Toute action sur le clavier physique ou le simulateur réinitialise instantanément les cibles du Sniper. Le contrôleur suit l'humain au lieu de le combattre.
+*   **Envelope Detector (Latching 3s)** : Remplace l'ancien "Silk Filter". Un bit vu à `1` sur le bus reste considéré comme `ON` pendant **3000ms** pour couvrir les phases de clignotement visuel.
+*   **Priorité Physique (Règle Hybride)** : En cas de clignotement (Alerte), le système ignore l'enveloppe et affiche l'état réel du moteur (`0x08`). Permet d'afficher "Filtration OFF" pendant une "Alerte Filtre".
 
 ---
 
@@ -153,4 +151,4 @@ L'ESP32 v6.9.30+ impose l'utilisation des Noms d'entités (Majuscules + Espaces)
 *   **Mode Bulles** : `http://[VAR1]/select/Mode%20Bulles/set?option=Niveau1`
 
 ---
-*Sanctuarisé le 01/05/2026 - Document Ultime de Référence - v3.1.*
+*Sanctuarisé le 12/05/2026 - Version DIAMOND FINAL - v3.5.*
