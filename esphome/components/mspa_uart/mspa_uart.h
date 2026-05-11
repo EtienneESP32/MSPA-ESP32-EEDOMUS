@@ -77,7 +77,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.14-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.15-PROD-READY Starting...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -302,6 +302,7 @@ protected:
             if (xSemaphoreTakeRecursive(uart_mutex_, portMAX_DELAY)) {
               uart_spa_->write_array(buf, len);
               xSemaphoreGiveRecursive(uart_mutex_);
+              ESP_LOGD(TAG, "Forwarded to SPA: ID=0x%02X", id);
             }
           } else {
             // FORWARD TO KBD (Byte by byte is already done in uart_task, but here we handle logic)
@@ -357,51 +358,64 @@ protected:
         bool functional_h = ph;
         if (g_h) functional_h = true; // Si ça clignote, c'est forcément actif
 
-        if (functional_f != bus_f_.load()) {
-            bus_f_ = functional_f;
-            ESP_LOGI(TAG, "BUS: Filtration -> %s", functional_f ? "ON" : "OFF");
-        }
-        if (functional_h != bus_h_.load()) {
-            bus_h_ = functional_h;
-            ESP_LOGI(TAG, "BUS: Heating -> %s", functional_h ? "ON" : "OFF");
-        }
+        // --- SILK FILTER ASYMÉTRIQUE (Shield Logic) ---
+        // ON est quasi-immédiat, OFF attend 1500ms de silence réel.
+        bool raw_f = (pf & 0x01) || (af & 0x01);
+        bool raw_h = (pf & 0x02) || (af & 0x02);
+        bool raw_u = pu; 
 
-        bool final_f = functional_f;
-        bool final_h = functional_h;
-
-        // SILK FILTER: Stabilité 1500ms
-        if (final_f != real_f_.load()) {
-          if (now - last_f_change_ms_ > 1500 || g_f) {
-            real_f_ = final_f;
+        // Logic FILTRE
+        if (raw_f) {
+            if (!real_f_.load()) {
+                real_f_ = true;
+                ESP_LOGD(TAG, "SILK: Filtre -> ON");
+                if (retry_f_ == 0) target_f_ = true;
+                if (f_switch_) f_switch_->publish_state(true);
+            }
             last_f_change_ms_ = now;
-            if (retry_f_ == 0) target_f_ = final_f;
-            else ESP_LOGD(TAG, "Sniper: Filtration retry in progress (%d)", retry_f_.load());
-            if (f_switch_) f_switch_->publish_state(final_f);
-          }
-        } else { last_f_change_ms_ = now; }
-
-        if (final_h != real_h_.load()) {
-          if (now - last_h_change_ms_ > 1500 || g_h) {
-            real_h_ = final_h;
-            last_h_change_ms_ = now;
-            if (retry_h_ == 0) target_h_ = final_h;
-            else ESP_LOGD(TAG, "Sniper: Heating retry in progress (%d)", retry_h_.load());
-            if (h_switch_) h_switch_->publish_state(final_h);
-          }
-        } else { last_h_change_ms_ = now; }
-        if (pu != bus_u_.load()) {
-          bus_u_ = pu;
+        } else if (now - last_f_change_ms_ > 1500) {
+            if (real_f_.load()) {
+                real_f_ = false;
+                ESP_LOGD(TAG, "SILK: Filtre -> OFF");
+                if (retry_f_ == 0) target_f_ = false;
+                if (f_switch_) f_switch_->publish_state(false);
+            }
         }
-        if (pu != real_u_.load()) {
-          if (now - last_u_change_ms_ > 1500) {
-            real_u_ = pu;
-            if (retry_u_ == 0)
-              target_u_ = pu;
-            if (u_switch_)
-              u_switch_->publish_state(pu);
-          }
-        } else {
-          last_u_change_ms_ = now;
+
+        // Logic CHAUFFE
+        if (raw_h) {
+            if (!real_h_.load()) {
+                real_h_ = true;
+                ESP_LOGD(TAG, "SILK: Chauffe -> ON");
+                if (retry_h_ == 0) target_h_ = true;
+                if (h_switch_) h_switch_->publish_state(true);
+            }
+            last_h_change_ms_ = now;
+        } else if (now - last_h_change_ms_ > 1500) {
+            if (real_h_.load()) {
+                real_h_ = false;
+                ESP_LOGD(TAG, "SILK: Chauffe -> OFF");
+                if (retry_h_ == 0) target_h_ = false;
+                if (h_switch_) h_switch_->publish_state(false);
+            }
+        }
+
+        // Logic UVC
+        if (raw_u) {
+            if (!real_u_.load()) {
+                real_u_ = true;
+                ESP_LOGD(TAG, "SILK: UVC -> ON");
+                if (retry_u_ == 0) target_u_ = true;
+                if (u_switch_) u_switch_->publish_state(true);
+            }
+            last_u_change_ms_ = now;
+        } else if (now - last_u_change_ms_ > 1500) {
+            if (real_u_.load()) {
+                real_u_ = false;
+                ESP_LOGD(TAG, "SILK: UVC -> OFF");
+                if (retry_u_ == 0) target_u_ = false;
+                if (u_switch_) u_switch_->publish_state(false);
+            }
         }
       }
       if (id == 0x1B) {
@@ -439,25 +453,25 @@ protected:
         float new_temp = d1 / 2.0f;
         if (std::abs(new_temp - real_temp_) > 0.1f) {
           real_temp_ = new_temp;
-          ESP_LOGI(TAG, "Silk Sync: Water Temp is %.1f", new_temp);
+          ESP_LOGD(TAG, "Silk Sync: Water Temp is %.1f", new_temp);
         }
       }
 
-      // Sniper Injection (Parallel) - Using BUS state for immediate feedback
+      // Sniper Injection (Shielded against blinking alerts)
       if (id == 0x06 || id == 0x1B || id == 0x1A) {
-        if (target_f_.load() != bus_f_.load() && retry_f_ > 0) {
+        if (target_f_.load() != real_f_.load() && retry_f_ > 0) {
           if (inject_cmd(0x02, target_f_.load() ? 0x01 : 0x00))
             retry_f_--;
         }
-        if (target_h_.load() != bus_h_.load() && retry_h_ > 0) {
+        if (target_h_.load() != real_h_.load() && retry_h_ > 0) {
           if (inject_cmd(0x01, target_h_.load() ? 0x01 : 0x00))
             retry_h_--;
         }
-        if (target_u_.load() != bus_u_.load() && retry_u_ > 0) {
+        if (target_u_.load() != real_u_.load() && retry_u_ > 0) {
           if (inject_cmd(0x19, target_u_.load() ? 0x01 : 0x00))
             retry_u_--;
         }
-        if (target_b_.load() != bus_b_.load() && retry_b_ > 0) {
+        if (target_b_.load() != (uint8_t)real_b_.load() && retry_b_ > 0) {
           if (inject_cmd(0x03, (uint8_t)target_b_.load()))
             retry_b_--;
         }

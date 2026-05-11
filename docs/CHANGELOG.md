@@ -1,5 +1,12 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Blindage de Production (v7.5.15-PROD-READY)
+- **Silk Filter Asymétrique** : Refonte de la logique de lissage (ON immédiat, OFF 1500ms). Garantit une interface stable même lors des alertes clignotantes.
+- **Sniper Shield** : La comparaison du Sniper se base désormais sur l'état filtré (`real_`) au lieu de l'état brut du bus, évitant ainsi les tirs parasites pendant les alertes.
+- **Silence Radio (UART)** : Passage de tous les logs de synchronisation de bus en niveau `DEBUG`. Supprime le risque de saturation CPU/Logger sur bus bruité.
+- **Stabilité Structurelle** : Nettoyage des boucles de suivi pour une réactivité maximale du Core 1.
+
+
 ### 2026-05-11 — Stabilisation du Logger (v7.5.14-STABLE)
 - **Throttling des Logs** : Limitation de l'affichage du message `ALERT FILTER ACTIVE!` à une fois toutes les 5 secondes (au lieu de 10 fois par seconde) pour éviter la saturation du processeur et les crashs.
 - **Eedomus Guard Opt** : Optimisation de la condition de log pour ne s'activer que si Eedomus est activé.
