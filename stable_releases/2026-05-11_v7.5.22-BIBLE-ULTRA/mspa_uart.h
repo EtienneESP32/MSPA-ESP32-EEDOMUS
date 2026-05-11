@@ -114,9 +114,6 @@ public:
     if (http_busy_ && (now - last_http_start_ms_ > 30000))
       http_busy_ = false;
 
-    // UI Sync (Core 0 -> Sanctuaire)
-    update_ui_states();
-
     // Watchdog Diag (Core 0)
     if (now - last_watchdog_ > 2000) {
       last_watchdog_ = now;
@@ -162,8 +159,6 @@ public:
     }
   }
 
-  void set_eedomus_enabled(bool val) { eedomus_enabled_ = val; }
-
 protected:
   uart::UARTComponent *uart_spa_;
   uart::UARTComponent *uart_kbd_;
@@ -180,7 +175,7 @@ protected:
   uint32_t last_watchdog_{0}, last_spa_ms_{0}, last_kbd_ms_{0};
   uint32_t last_http_ms_{0}, last_http_start_ms_{0};
   uint32_t last_f_change_ms_{0}, last_h_change_ms_{0}, last_u_change_ms_{0}, last_b_change_ms_{0}, last_set_change_ms_{0};
-  bool http_busy_{false}, lock_{false}, eedomus_enabled_{false};
+  bool http_busy_{false}, lock_{false}, eedomus_enabled_{true};
   std::deque<EedomusRequest> eedomus_queue_;
   std::function<void(int, float, bool)> eedomus_callback_;
   
@@ -341,49 +336,29 @@ protected:
     }
 
     // SNIPER (Core 1)
-    if (id == 0x1A) { // On ne tire QUE sur la trame d'état pour économiser le retry
-      check_sniper(target_f_, real_f_, retry_f_, 0x02);
-      check_sniper(target_h_, real_h_, retry_h_, 0x01);
-      check_sniper(target_u_, real_u_, retry_u_, 0x19);
-      if (target_b_.load() != (uint8_t)real_b_.load() && retry_b_ > 0) {
+    if (id == 0x06 || id == 0x1B || id == 0x1A) {
+      check_sniper(target_f_, bus_f_, retry_f_, 0x02);
+      check_sniper(target_h_, bus_h_, retry_h_, 0x01);
+      check_sniper(target_u_, bus_u_, retry_u_, 0x19);
+      if (target_b_.load() != bus_b_.load() && retry_b_ > 0) {
         if (inject_cmd(0x03, (uint8_t)target_b_.load())) retry_b_--;
       }
     }
   }
 
-  void update_ui_states() {
-    uint32_t now = millis();
-    // Synchronisation Core 1 -> Core 0 (UI)
-    // On ne fait les publish_state QUE depuis le fil principal (Core 0)
-    sync_switch(f_switch_, real_f_, last_pub_f_);
-    sync_switch(h_switch_, real_h_, last_pub_h_);
-    sync_switch(u_switch_, real_u_, last_pub_u_);
-    
-    if (b_select_ && real_b_.load() != last_pub_b_) {
-        last_pub_b_ = real_b_.load();
-        int pb = last_pub_b_;
-        b_select_->publish_state((pb == 1) ? "Niveau1" : (pb == 2) ? "Niveau2" : (pb == 3) ? "Niveau3" : "Arret");
-    }
-    if (setpoint_sensor_ && std::abs(real_setpoint_.load() - last_pub_setpoint_) > 0.1f) {
-        last_pub_setpoint_ = real_setpoint_.load();
-        setpoint_sensor_->publish_state(last_pub_setpoint_);
-    }
-    if (temp_sensor_ && std::abs(real_temp_.load() - last_pub_temp_) > 0.1f) {
-        last_pub_temp_ = real_temp_.load();
-        temp_sensor_->publish_state(last_pub_temp_);
-    }
+  void update_ui_switch(uint32_t now, bool current, std::atomic<bool> &real, uint32_t &last_change, switch_::Switch *sw, bool force) {
+    if (current != real.load()) {
+      if (now - last_change > 1500 || force) {
+        real = current;
+        last_change = now;
+        ESP_LOGI(TAG, "UI: %s -> %s (Filter: %s)", sw ? sw->get_name().c_str() : "Switch", current ? "ON" : "OFF", force ? "GHOST" : "SILK");
+        if (sw) sw->publish_state(current);
+      }
+    } else last_change = now;
   }
 
-  void sync_switch(switch_::Switch *sw, std::atomic<bool> &real, bool &last_pub) {
-    bool current = real.load();
-    if (sw && current != last_pub) {
-      last_pub = current;
-      sw->publish_state(current);
-    }
-  }
-
-  void check_sniper(std::atomic<bool> &target, std::atomic<bool> &real, std::atomic<uint8_t> &retry, uint8_t cmd) {
-    if (target.load() != real.load() && retry > 0) {
+  void check_sniper(std::atomic<bool> &target, std::atomic<bool> &bus, std::atomic<uint8_t> &retry, uint8_t cmd) {
+    if (target.load() != bus.load() && retry > 0) {
       if (inject_cmd(cmd, target.load() ? 0x01 : 0x00)) retry--;
     }
   }

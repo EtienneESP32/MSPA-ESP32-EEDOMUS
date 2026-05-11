@@ -1,5 +1,26 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Atomic Sanctuary & Lock-Free Core (v7.5.26-ULTRA-RESILIENT)
+- **Architecture Lock-Free** : Suppression totale des verrous Mutex sur le relais d'octets UART. Le Cœur 1 (Sanctuaire) est désormais totalement indépendant du Cœur 0 (Réseau).
+- **Variables Atomiques (`std::atomic`)** : Migration de tous les états partagés (Commandes Sniper, Températures, Flags) vers des types atomiques. Élimine tout risque de blocage ou de "Race Condition" entre les deux cœurs.
+- **Réactivité Sniper < 1s** : Validation d'un temps de réaction d'environ 1 seconde entre le clic UI et l'injection physique sur le bus, même lors de fortes latences WiFi.
+- **Immunité Réseau** : Le bus UART ne peut plus être figé par des timeouts HTTP ou des défaillances DNS. Le "Lien Moteur" et le "Lien Clavier" restent stables en toutes circonstances.
+- **Certification GOLD** : Version finale certifiée pour le déploiement en environnement bruité ou instable.
+
+### 2026-05-11 — Résilience Totale & Socket Guard (v7.5.25-LABO-RESILIENT)
+- **Socket Guard (Anti-Asphyxie)** : Vérification systématique du Heap avant chaque envoi HTTP. Seuil de sécurité à **45 Ko**. En cas de mémoire basse, le push est annulé pour garantir la survie de l'accès Web et OTA.
+- **Dédoublonnage Intelligent (Queue Collapse)** : Implémentation d'un algorithme de nettoyage de file d'attente. Si une valeur change avant d'être envoyée, l'ancienne est écrasée. Empilement de requêtes vers Eedomus impossible (max 1 requête par périphérique dans la file).
+- **Throttle Dynamique (Gentle Mirror)** : Réduction de l'intervalle de sécurité à **5 secondes** entre deux requêtes (contre 15s auparavant), géré de manière fluide par le Cœur 0 sans bloquer l'exécution.
+- **Fail-Safe Timeout** : Réduction du verrouillage HTTP de 30s à **10s** en cas de blocage réseau (TCP Hang), libérant ainsi les ressources plus rapidement.
+- **Boot Sync Optimisé** : Suppression des délais de 15s dans le YAML. La synchronisation initiale est maintenant gérée par la file d'attente C++, permettant une mise à jour exhaustive en ~40 secondes sans risque de crash.
+- **Lien Eedomus UI** : Ajout d'un interrupteur logiciel dans l'interface Web pour couper instantanément toute communication sortante sans reflasher.
+- **Certification "Worst Case"** : Validé avec succès face à une Eedomus injoignable (IP fantôme) : Uptime stable, Heap à 145 Ko, Interface Web fluide.
+
+### 2026-05-11 — Master Sanctuary (v7.5.23-BIBLE-ULTRA)
+- **User Priority Rule** : Chaque action UI réinitialise instantanément les flags de Ghosting pour le composant concerné. Empêche le verrouillage indésirable observé lors de clics rapides.
+- **Sniper Persistence** : Augmentation du nombre de réessais à **10 tentatives** pour surmonter les transitions de bus bruité.
+- **Robustesse Labo** : Élimination du conflit YAML "Refus Filtration OFF" par synchronisation forcée des états.
+
 ### 2026-05-11 — Restauration Décentralisée (v7.5.22-BIBLE-ULTRA)
 - **Architecture v7.5.14** : Retour à la distribution de la charge réseau entre les deux cœurs. Le Core 1 gère ses propres `publish_state` filtrés, libérant le Core 0 pour le Web.
 - **Loop Safety (Anti-Freeze)** : Implémentation d'une bride de 64 octets par cycle UART et timeout Mutex de 10ms. Élimine tout risque de Hard Lockup CPU.

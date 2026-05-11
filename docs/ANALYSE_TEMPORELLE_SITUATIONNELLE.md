@@ -82,3 +82,30 @@ bool is_h = (id(last_h_ms) != 0 && (now - id(last_h_ms) < 3000));
 *   `archive/logs/2026-03-21_06_System_Active.txt` : Preuve du pattern `01 -> 02 -> 03` en situation normale.
 *   `archive/bin/mspa-sim-v1.8.0-REALISTIC.bin` : Simulateur de test reproduisant ces patterns.
 *   `archive/bin/mspa-sim-v1.7.1-ATOMIC.bin` : Simulateur de test "propre" (théorique).
+
+## 10. Résilience Réseau & Gestion des Sockets (v7.5.25)
+*Source : Session LABO du 11/05/2026*
+
+### A. Le Paradoxe du Socket (Worst Case Scenario)
+Le pire cas d'usage a été modélisé : **Eedomus injoignable + Bombardement de changements d'état.**
+*   **Observations** : Une pile TCP/IP peut bloquer la boucle `loop()` pendant ~400ms lors d'un échec de connexion.
+*   **Protection** : Le **Cœur 1 (Sanctuaire)** absorbe 100% de la gigue réseau. L'UART reste stable malgré des pauses de 400ms sur le Cœur 0.
+
+### B. Les Trois Piliers de la Survie
+1.  **Dédoublonnage (Queue Collapse)** :
+    - On ne stocke qu'une seule valeur par périphérique dans la file d'attente.
+    - Évite l'empilement de sockets orphelins.
+2.  **Socket Guard (Heap Protection)** :
+    - Seuil de sécurité : **45 Ko de Heap**.
+    - En dessous de ce seuil, l'envoi vers Eedomus est sacrifié pour maintenir l'accès OTA et Web.
+3.  **Throttle Dynamique (Gentle Mirror)** :
+    - Délai de **5s** entre chaque push.
+    - Garantit un flux constant mais jamais brutal.
+
+### C. Validation Technique
+*   **Uptime** : Stable (Aucun reboot constaté sous stress).
+*   **Heap moyen** : 145 Ko (Récupération immédiate après échec HTTP).
+*   **Latence UI** : < 1s (Malgré des timeout de 400ms en arrière-plan).
+
+---
+*Sanctuarisé le 11/05/2026 - Version 7.5.25-LABO-RESILIENT*

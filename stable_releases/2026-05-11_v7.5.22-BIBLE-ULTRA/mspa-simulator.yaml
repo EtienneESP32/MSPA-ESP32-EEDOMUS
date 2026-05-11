@@ -1,0 +1,351 @@
+substitutions:
+  name: "mspa-sim-v1-8-2-authentic"
+  version: "1.8.2-AUTHENTIC"
+
+esphome:
+  name: ${name}
+  friendly_name: MSPA-Simulator-v${version}-BOUILLIE
+  project:
+    name: "etienne.mspa-simulator"
+    version: ${version}
+  
+  includes:
+    - mspa_sim_task_ghost.h
+
+  on_boot:
+    then:
+      - lambda: |-
+          auto* sim = new MspaSimTask();
+          App.register_component(sim);
+
+  on_loop:
+    then:
+      - lambda: |-
+          static uint8_t buf[8];
+          static int idx = 0;
+          while (id(uart_mb).available()) {
+            uint8_t c; if (!id(uart_mb).read_byte(&c)) break;
+            id(sim_uart_activity_timer) = 5; 
+            if (idx == 0 && c != 0xA5 && c != 0x00) continue;
+            buf[idx++] = c;
+            
+            if (buf[0] == 0xA5) {
+              int target_len = 4;
+              if (idx >= 2 && buf[1] == 0x1B) target_len = 5;
+              
+              if (idx == target_len) {
+                if (target_len == 4) {
+                   uint8_t sid = buf[1], val = buf[2], cs = buf[3];
+                   if ((uint8_t)(0xA5 + sid + val) == cs) {
+                     id(sim_uart_cmd_timer) = 10;
+                     uint32_t now = millis();
+
+                     if (sid == 0x02) {
+                        if (now - id(sim_last_filt_cmd) < 500) { 
+                           if (now - id(sim_filt_hold_start) > 3000) { 
+                              if (id(sim_filter_alert)) {
+                                 id(sim_filter_alert) = false;
+                                 ESP_LOGI("SIM", "RESET FILTRE : Appui long détecté !");
+                              }
+                           }
+                        } else { id(sim_filt_hold_start) = now; }
+                        id(sim_last_filt_cmd) = now;
+                     }
+
+                     if (now - id(sim_last_cmd_time) > 500) { 
+                        if (sid == 0x01) { 
+                           if (val == 0) { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); }
+                           else { if (id(sim_heat_phase) == 0) id(script_heat).execute(); else { id(sim_heat_phase) = 0; id(script_pump_cooldown).execute(); } }
+                           id(sim_last_cmd_time) = now;
+                        }
+                        if (sid == 0x02) { 
+                           if (!id(sim_filter_alert)) {
+                              if (val == 0) { id(sim_filt_active) = false; id(script_pump_cooldown).execute(); }
+                              else { id(sim_filt_active) = !id(sim_filt_active); if (!id(sim_filt_active)) id(script_pump_cooldown).execute(); }
+                              id(sim_last_cmd_time) = now;
+                           }
+                        }
+                        if (sid == 0x19) { 
+                           if (val == 0) { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); }
+                           else { if (id(sim_uvc_phase) == 0) id(script_uvc).execute(); else { id(sim_uvc_phase) = 0; id(script_pump_cooldown).execute(); } }
+                           id(sim_last_cmd_time) = now;
+                        }
+                     }
+                     if (sid == 0x03) { 
+                        id(sim_bubbles) = val; id(script_update_bubbles_label).execute();
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, val, s_val, (uint8_t)(0xA5+0x1B+val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
+                     }
+                     if (sid == 0x04) { 
+                        id(sim_setpoint) = (uint8_t)(val + 30); id(sim_setpoint_num).publish_state(id(sim_setpoint)); 
+                        uint8_t b_val = id(sim_bubbles);
+                        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+                        uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+                        id(uart_mb).write_array(f1B, 5);
+                     }
+                     if (sid == 0x06) { id(sim_temp_bus).publish_state(val / 2.0f); }
+                   } else { id(sim_err_4b)++; }
+                }
+                else if (target_len == 5) {
+                   uint8_t sid = buf[1], d1 = buf[2], d2 = buf[3], cs = buf[4];
+                   if ((uint8_t)(0xA5 + sid + d1 + d2) == cs) {
+                     id(sim_uart_cmd_timer) = 10;
+                     if (sid == 0x1B) { 
+                        id(sim_bubbles) = d1; id(script_update_bubbles_label).execute();
+                        id(sim_setpoint_bus).publish_state(d2 + 30);
+                     }
+                   } else { id(sim_err_5b)++; }
+                }
+                idx = 0;
+              }
+            }
+            else if (buf[0] == 0x00 && idx == 5) {
+              uint8_t sid = buf[1], val = buf[2], d2 = buf[3], cs = buf[4];
+              if ((uint8_t)(sid + val + d2 - 0x11) == cs) {
+                id(sim_uart_cmd_timer) = 10;
+                if (sid == 0x03 || sid == 0x11) { 
+                   id(sim_bubbles) = val; id(script_update_bubbles_label).execute();
+                }
+              } else { id(sim_err_5b)++; }
+              idx = 0;
+            }
+            if (idx >= 8) idx = 0;
+          }
+
+esp32:
+  board: esp32dev
+  framework: { type: arduino }
+
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      manual_ip: { static_ip: 192.168.1.230, gateway: 192.168.1.1, subnet: 255.255.255.0 }
+
+api:
+
+ota:
+  - platform: esphome
+
+logger:
+  level: DEBUG
+  baud_rate: 0 
+
+uart:
+  - id: uart_mb  
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 9600
+  - id: uart_kbd
+    tx_pin: GPIO13
+    rx_pin: GPIO14
+    baud_rate: 9600
+
+output:
+  - platform: ledc
+    pin: GPIO2
+    id: led_blue_out
+light:
+  - platform: binary
+    output: led_blue_out
+    id: led_physical
+    internal: true
+
+globals:
+  - id: sim_temp
+    type: float
+    initial_value: "10.0"
+  - id: sim_relay
+    type: uint8_t
+    initial_value: "0x00"
+  - id: sim_bubbles
+    type: uint8_t
+    initial_value: "0x00"
+  - id: sim_setpoint
+    type: uint8_t
+    initial_value: "38"
+  - id: sim_cycle
+    type: uint8_t
+    initial_value: "0"
+  - id: sim_heat_phase
+    type: int
+    initial_value: "0"
+  - id: sim_uvc_phase
+    type: int
+    initial_value: "0"
+  - id: sim_filt_active
+    type: bool
+    initial_value: "false"
+  - id: sim_filter_alert
+    type: bool
+    initial_value: "false"
+  - id: sim_uart_activity_timer
+    type: int
+    initial_value: "0"
+  - id: sim_uart_cmd_timer
+    type: int
+    initial_value: "0"
+  - id: sim_last_cmd_time
+    type: uint32_t
+    initial_value: "0"
+  - id: sim_err_4b
+    type: uint32_t
+    initial_value: "0"
+  - id: sim_err_5b
+    type: uint32_t
+    initial_value: "0"
+  - id: sim_filt_hold_start
+    type: uint32_t
+    initial_value: "0"
+  - id: sim_last_filt_cmd
+    type: uint32_t
+    initial_value: "0"
+
+script:
+  - id: script_update_bubbles_label
+    then:
+      - text_sensor.template.publish:
+          id: sim_bubbles_txt
+          state: !lambda |-
+            if (id(sim_bubbles) == 1) return "Doux";
+            if (id(sim_bubbles) == 2) return "Moyen";
+            if (id(sim_bubbles) == 3) return "Fort";
+            return "Arrêt";
+
+  - id: script_heat
+    mode: restart
+    then:
+      - lambda: id(sim_heat_phase) = 1;
+      - delay: 10s
+      - lambda: id(sim_heat_phase) = 2;
+  - id: script_uvc
+    mode: restart
+    then:
+      - lambda: id(sim_uvc_phase) = 1;
+      - delay: 10s
+      - lambda: id(sim_uvc_phase) = 2;
+  - id: script_pump_cooldown
+    mode: restart
+    then:
+      - delay: 10s
+      - lambda: |-
+          if (!id(sim_filt_active) && id(sim_heat_phase) == 0 && id(sim_uvc_phase) == 0) id(sim_relay) = 0x00;
+
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          ESP_LOGI("SIM", "Heartbeat DUAL CORE - Bus Active");
+
+web_server:
+  port: 80
+
+sensor:
+  - platform: template
+    name: "LUE: Temp Eau (Bus)"
+    id: sim_temp_bus
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+  - platform: template
+    name: "LUE: Consigne (Bus)"
+    id: sim_setpoint_bus
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+  - platform: template
+    name: "DIAG: Erreurs 4b"
+    id: sim_diag_err4b
+    lambda: return (float)id(sim_err_4b);
+    update_interval: 1s
+  - platform: template
+    name: "DIAG: Erreurs 5b"
+    id: sim_diag_err5b
+    lambda: return (float)id(sim_err_5b);
+    update_interval: 1s
+
+button:
+  - platform: template
+    name: "ACTION: CHAUFFE"
+    on_press:
+      - lambda: |-
+          uint8_t f[4] = {0xA5, 0x01, 0x01, 0xA7};
+          id(uart_kbd).write_array(f, 4);
+  - platform: template
+    name: "ACTION: FILTRE"
+    on_press:
+      - lambda: |-
+          uint8_t f[4] = {0xA5, 0x02, 0x01, 0xA8};
+          id(uart_kbd).write_array(f, 4);
+  - platform: template
+    name: "ACTION: BULLLES"
+    on_press:
+      - lambda: |-
+          uint8_t next_v = 0;
+          if (id(sim_bubbles) == 0) next_v = 2;
+          else if (id(sim_bubbles) == 2) next_v = 3;
+          else if (id(sim_bubbles) == 3) next_v = 1;
+          else next_v = 0;
+          uint8_t f[4] = {0xA5, 0x03, next_v, (uint8_t)(0xA5+0x03+next_v)};
+          id(uart_kbd).write_array(f, 4);
+  - platform: template
+    name: "ACTION: UVC"
+    on_press:
+      - lambda: |-
+          uint8_t f[4] = {0xA5, 0x19, 0x01, 0xBF};
+          id(uart_kbd).write_array(f, 4);
+  - platform: template
+    name: "ALERTE FILTRE F1"
+    on_press:
+      - lambda: |-
+          id(sim_filter_alert) = !id(sim_filter_alert);
+          if (id(sim_filter_alert)) { id(sim_filt_active)=false; id(sim_heat_phase)=0; id(sim_uvc_phase)=0; id(sim_relay)=0x00; }
+
+switch:
+  - platform: template
+    name: "MIROIR: Chauffe"
+    id: sw_icon_heat
+    optimistic: true
+  - platform: template
+    name: "MIROIR: Filtration"
+    id: sw_icon_filt
+    optimistic: true
+  - platform: template
+    name: "MIROIR: UVC"
+    id: sw_icon_uvc
+    optimistic: true
+  - platform: template
+    name: "MIROIR: Pompe"
+    id: sw_rel_pump
+    optimistic: true
+
+text_sensor:
+  - platform: template
+    name: "BULLLES: Niveau"
+    id: sim_bubbles_txt
+
+number:
+  - platform: template
+    name: "SIM: Temp Eau"
+    id: sim_temp_num
+    mode: box
+    initial_value: 10.0
+    min_value: 10
+    max_value: 50
+    step: 0.5
+    set_action: { lambda: id(sim_temp) = x; }
+  - platform: template
+    name: "SIM: Consigne"
+    id: sim_setpoint_num
+    mode: box
+    initial_value: 38
+    min_value: 20
+    max_value: 40
+    step: 1.0
+    set_action: 
+      lambda: |-
+        id(sim_setpoint) = (uint8_t)x;
+        uint8_t b_val = id(sim_bubbles);
+        uint8_t s_val = (uint8_t)(id(sim_setpoint) - 30);
+        uint8_t f1B[5] = {0xA5, 0x1B, b_val, s_val, (uint8_t)(0xA5+0x1B+b_val+s_val)};
+        id(uart_mb).write_array(f1B, 5);
