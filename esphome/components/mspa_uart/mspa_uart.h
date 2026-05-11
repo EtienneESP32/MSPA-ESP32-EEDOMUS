@@ -51,6 +51,7 @@ public:
     eedomus_callback_ = std::move(callback);
   }
   void set_http_busy(bool busy) { http_busy_ = busy; }
+  void set_eedomus_enabled(bool enabled) { eedomus_enabled_ = enabled; }
 
   std::atomic<bool> target_f_{false}, target_h_{false}, target_u_{false};
   std::atomic<int> target_b_{0}, real_b_{0};
@@ -64,6 +65,8 @@ public:
   std::atomic<uint32_t> last_on_f_{0}, last_injection_ms_{0};
 
   void enqueue_eedomus(int p_id, float val, bool is_f, bool force = false) {
+    if (!eedomus_enabled_)
+      return;
     if (eedomus_queue_.size() > 20)
       eedomus_queue_.pop_back();
     if (force) {
@@ -74,7 +77,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.10-DEBUG Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.11-STABLE Starting...");
     uart_mutex_ = xSemaphoreCreateMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -99,7 +102,7 @@ public:
     }
     if (http_busy_ && (now - last_http_start_ms_ > 30000))
       http_busy_ = false;
-    if (!http_busy_ && !eedomus_queue_.empty() &&
+    if (eedomus_enabled_ && !http_busy_ && !eedomus_queue_.empty() &&
         (now - last_http_ms_ > 5000)) {
       EedomusRequest req = eedomus_queue_.front();
       eedomus_queue_.pop_front();
@@ -510,7 +513,7 @@ public:
   uint32_t last_spa_activity_{0}, last_kbd_activity_{0};
   float real_temp_{0}, real_setpoint_{0};
   std::atomic<uint32_t> last_pump_start_ms_{0};
-  std::atomic<bool> http_busy_{false}, lock_{false};
+  std::atomic<bool> http_busy_{false}, lock_{false}, eedomus_enabled_{true};
   std::deque<EedomusRequest> eedomus_queue_;
   uint8_t last_status_1a_{0xFF};
   std::function<void(int, float, bool)> eedomus_callback_;

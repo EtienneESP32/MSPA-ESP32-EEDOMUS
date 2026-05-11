@@ -1,5 +1,11 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Zero-Lag & Eedomus Guard (v7.5.11-STABLE)
+- **Eedomus Guard** : Implémentation d'un verrou matériel dans le cœur C++ pour couper toute activité HTTP.
+- **Suppression des Latences** : Désactivation totale d'Eedomus pour le LABO, supprimant les blocages de 500ms qui empêchaient le Sniper de fonctionner.
+- **Performance** : Gain de fluidité massif sur le traitement du bus UART.
+
+
 ### 2026-05-11 — Diagnostic Commandes (v7.5.10-DEBUG)
 - **Log Diagnostic** : Activation de logs INFO sur les changements d'état du bus (`BUS: Filtration -> ON`) et sur les injections Sniper.
 - **Audit Sniper** : Suivi des réessais pour comprendre pourquoi certaines commandes "ne partent pas".

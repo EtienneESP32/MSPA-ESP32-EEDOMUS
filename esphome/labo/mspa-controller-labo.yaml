@@ -3,8 +3,8 @@
 # LOGIQUE CLONE SANCTUARY v6.7.8
 
 substitutions:
-  mspa_version: "7.5.10-DEBUG"
-  eedomus_enabled: "true"
+  mspa_version: "7.5.11-STABLE"
+  eedomus_enabled: "false"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
   eedomus_api_secret: !secret eedomus_api_secret
@@ -50,7 +50,7 @@ esphome:
           id(mspa_logic)->set_b_select(id(mode_bulles));
           id(mspa_logic)->set_link_sensor(id(motor_link));
           id(mspa_logic)->set_kbd_link_sensor(id(kbd_link));
-          id(mspa_logic)->set_lock(id(verrouillage_clavier).state);
+          id(mspa_logic)->set_eedomus_enabled(${eedomus_enabled});
           id(mspa_logic)->set_eedomus_callback([=](int p_id, float p_val, bool p_f) {
             App.scheduler.set_timeout(id(mspa_logic), "push_eedomus", 0, [=]() {
               id(script_push_eedomus).execute(p_id, p_val, p_f);
