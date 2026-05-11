@@ -77,8 +77,8 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.11-STABLE Starting...");
-    uart_mutex_ = xSemaphoreCreateMutex();
+    ESP_LOGI(TAG, "MSPA v7.5.12-STABLE Starting...");
+    uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
                                "mspa_uart_task", 8192, this, 5,
@@ -177,12 +177,12 @@ public:
       return false; // Throttle to 200ms between shots
     }
 
-    if (xSemaphoreTake(uart_mutex_, pdMS_TO_TICKS(100))) {
+    if (xSemaphoreTakeRecursive(uart_mutex_, pdMS_TO_TICKS(100))) {
       ESP_LOGI(TAG, "Injecting CMD: ID=0x%02X VAL=0x%02X (Len=%d)", id, val,
                len);
       uart_spa_->write_array(buf, len);
       last_injection_ms_ = now;
-      xSemaphoreGive(uart_mutex_);
+      xSemaphoreGiveRecursive(uart_mutex_);
       return true;
     }
     return false;
@@ -198,7 +198,7 @@ protected:
       bool activity = false;
       // SPA -> KBD (Transparent Immédiat)
       if (uart_spa_->available()) {
-        if (xSemaphoreTake(uart_mutex_, pdMS_TO_TICKS(10))) {
+        if (xSemaphoreTakeRecursive(uart_mutex_, pdMS_TO_TICKS(10))) {
           while (uart_spa_->available()) {
             uint8_t c;
             if (uart_spa_->read_byte(&c)) {
@@ -207,7 +207,7 @@ protected:
               activity = true;
             }
           }
-          xSemaphoreGive(uart_mutex_);
+          xSemaphoreGiveRecursive(uart_mutex_);
         }
       }
       // KBD -> SPA (Filtré dans process_machine)
@@ -309,9 +309,9 @@ protected:
             }
 
             // FORWARD TO SPA
-            if (xSemaphoreTake(uart_mutex_, portMAX_DELAY)) {
+            if (xSemaphoreTakeRecursive(uart_mutex_, portMAX_DELAY)) {
               uart_spa_->write_array(buf, len);
-              xSemaphoreGive(uart_mutex_);
+              xSemaphoreGiveRecursive(uart_mutex_);
             }
           } else {
             // FORWARD TO KBD (Byte by byte is already done in uart_task, but here we handle logic)

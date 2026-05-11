@@ -3,7 +3,7 @@
 # LOGIQUE CLONE SANCTUARY v6.7.8
 
 substitutions:
-  mspa_version: "7.5.11-STABLE"
+  mspa_version: "7.5.12-STABLE"
   eedomus_enabled: "false"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user

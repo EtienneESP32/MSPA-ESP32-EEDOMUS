@@ -1,5 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Résolution Deadlock Mutex (v7.5.12-STABLE)
+- **Mutex Récursif** : Migration vers un mutex récursif pour permettre au Sniper d'injecter des commandes pendant que le bus est en cours de lecture par la tâche UART (résolution du deadlock d'auto-blocage).
+- **Stabilité Structurelle** : Correction du bug empêchant l'exécution des commandes `Injecting CMD` après un clic dans l'UI.
+
+
 ### 2026-05-11 — Zero-Lag & Eedomus Guard (v7.5.11-STABLE)
 - **Eedomus Guard** : Implémentation d'un verrou matériel dans le cœur C++ pour couper toute activité HTTP.
 - **Suppression des Latences** : Désactivation totale d'Eedomus pour le LABO, supprimant les blocages de 500ms qui empêchaient le Sniper de fonctionner.
