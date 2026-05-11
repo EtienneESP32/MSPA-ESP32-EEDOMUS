@@ -1,5 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Stabilisation du Logger (v7.5.14-STABLE)
+- **Throttling des Logs** : Limitation de l'affichage du message `ALERT FILTER ACTIVE!` à une fois toutes les 5 secondes (au lieu de 10 fois par seconde) pour éviter la saturation du processeur et les crashs.
+- **Eedomus Guard Opt** : Optimisation de la condition de log pour ne s'activer que si Eedomus est activé.
+
+
 ### 2026-05-11 — Restauration de la Non-Dictature (v7.5.13-STABLE)
 - **Conformité MITM** : Suppression de l'armement automatique du Sniper lors de la réception de touches physiques (Keyboard).
 - **Principe `target = real`** : Le contrôleur suit désormais les actions physiques au lieu de tenter de les imposer. Résout le conflit de "lutte" (oscillations ON/OFF) lors de l'utilisation des boutons du simulateur ou du spa.

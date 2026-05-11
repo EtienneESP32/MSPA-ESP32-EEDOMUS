@@ -77,7 +77,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.13-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.14-STABLE Starting...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -480,8 +480,13 @@ public:
     // Filter Alert Logic (Blinking detection)
     if (filter_alert_sensor_) {
       bool alert = (is_blinking_f_ && !physical_f_on_.load());
-      if (alert)
-        ESP_LOGW(TAG, "ALERT FILTER ACTIVE!");
+      if (alert && eedomus_enabled_) {
+        uint32_t now = millis();
+        if (now - last_alert_log_ms_ > 5000) {
+          ESP_LOGW(TAG, "ALERT FILTER ACTIVE! (Eedomus Guard engaged)");
+          last_alert_log_ms_ = now;
+        }
+      }
       if (alert != last_alert_val_) {
         last_alert_val_ = alert;
         filter_alert_sensor_->publish_state(alert);
@@ -512,7 +517,8 @@ public:
   uint32_t last_f_change_ms_{0}, last_h_change_ms_{0}, last_u_change_ms_{0},
       last_b_change_ms_{0}, last_set_change_ms_{0};
   uint8_t last_kbd_f_{0}, last_kbd_h_{0}, last_kbd_u_{0};
+  uint32_t last_alert_log_ms_ = 0;
 };
 
-} // namespace mspa
+} // namespace mspa_uart
 } // namespace esphome
