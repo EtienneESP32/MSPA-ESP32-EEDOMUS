@@ -58,6 +58,8 @@ public:
   std::atomic<bool> real_f_{false}, real_h_{false}, real_u_{false};
   std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0};
   std::atomic<bool> physical_f_on_{false}, physical_h_on_{false};
+  std::atomic<bool> last_pub_f_{false}, last_pub_h_{false}, last_pub_u_{false};
+  std::atomic<int> last_pub_b_{0};
   std::atomic<bool> is_blinking_f_{false}, is_blinking_h_{false},
       last_f_on_{false}, last_alert_val_{false};
   std::atomic<bool> bus_f_{false}, bus_h_{false}, bus_u_{false};
@@ -77,7 +79,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.15-PROD-READY Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.16-BIBLE-ULTRA Starting...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -322,11 +324,6 @@ protected:
     uint32_t now = millis();
     if (from_spa) {
       last_spa_activity_ = now;
-      if (id == 0x08) {
-        // ESP_LOGD(TAG, "Status 0x08 Bits: D1=%02X", d1);
-        physical_f_on_ = (d1 & 0x01);
-        physical_h_on_ = (d1 & 0x02);
-      }
       if (id == 0x1A) {
         // ESP_LOGD(TAG, "Status 0x1A Bits: D1=%02X", d1);
         bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
@@ -350,35 +347,25 @@ protected:
         is_blinking_f_ = g_f; // Atomic for watchdog alert detection
         is_blinking_h_ = g_h;
 
-        // --- DÉCODAGE SÉMANTIQUE (CLEAN STATE) ---
-        // On verrouille l'état fonctionnel pour éviter le clignotement de l'UI et du Sniper
-        bool functional_f = pf; 
-        if (g_f) functional_f = physical_f_on_.load(); // ON si ghosting, OFF si alerte
-        
-        bool functional_h = ph;
-        if (g_h) functional_h = true; // Si ça clignote, c'est forcément actif
-
         // --- SILK FILTER ASYMÉTRIQUE (Shield Logic) ---
         // ON est quasi-immédiat, OFF attend 1500ms de silence réel.
-        bool raw_f = (pf & 0x01) || (af & 0x01);
-        bool raw_h = (pf & 0x02) || (af & 0x02);
+        bool raw_f = pf || g_f;
+        bool raw_h = ph || g_h;
         bool raw_u = pu; 
 
         // Logic FILTRE
         if (raw_f) {
             if (!real_f_.load()) {
                 real_f_ = true;
-                ESP_LOGD(TAG, "SILK: Filtre -> ON");
+                ESP_LOGD(TAG, "SILK: Filtre -> ON (Atomic)");
                 if (retry_f_ == 0) target_f_ = true;
-                if (f_switch_) f_switch_->publish_state(true);
             }
             last_f_change_ms_ = now;
         } else if (now - last_f_change_ms_ > 1500) {
             if (real_f_.load()) {
                 real_f_ = false;
-                ESP_LOGD(TAG, "SILK: Filtre -> OFF");
+                ESP_LOGD(TAG, "SILK: Filtre -> OFF (Atomic)");
                 if (retry_f_ == 0) target_f_ = false;
-                if (f_switch_) f_switch_->publish_state(false);
             }
         }
 
@@ -386,17 +373,15 @@ protected:
         if (raw_h) {
             if (!real_h_.load()) {
                 real_h_ = true;
-                ESP_LOGD(TAG, "SILK: Chauffe -> ON");
+                ESP_LOGD(TAG, "SILK: Chauffe -> ON (Atomic)");
                 if (retry_h_ == 0) target_h_ = true;
-                if (h_switch_) h_switch_->publish_state(true);
             }
             last_h_change_ms_ = now;
         } else if (now - last_h_change_ms_ > 1500) {
             if (real_h_.load()) {
                 real_h_ = false;
-                ESP_LOGD(TAG, "SILK: Chauffe -> OFF");
+                ESP_LOGD(TAG, "SILK: Chauffe -> OFF (Atomic)");
                 if (retry_h_ == 0) target_h_ = false;
-                if (h_switch_) h_switch_->publish_state(false);
             }
         }
 
@@ -404,36 +389,31 @@ protected:
         if (raw_u) {
             if (!real_u_.load()) {
                 real_u_ = true;
-                ESP_LOGD(TAG, "SILK: UVC -> ON");
+                ESP_LOGD(TAG, "SILK: UVC -> ON (Atomic)");
                 if (retry_u_ == 0) target_u_ = true;
-                if (u_switch_) u_switch_->publish_state(true);
             }
             last_u_change_ms_ = now;
         } else if (now - last_u_change_ms_ > 1500) {
             if (real_u_.load()) {
                 real_u_ = false;
-                ESP_LOGD(TAG, "SILK: UVC -> OFF");
+                ESP_LOGD(TAG, "SILK: UVC -> OFF (Atomic)");
                 if (retry_u_ == 0) target_u_ = false;
-                if (u_switch_) u_switch_->publish_state(false);
             }
         }
       }
+
+      if (id == 0x08) {
+        // RELAIS PHYSIQUE (BIBLE V3 Section 2.B)
+        physical_f_on_ = (d1 & 0x01);
+        physical_h_on_ = (d1 & 0x02);
+      }
+
       if (id == 0x1B) {
         int pb = d1;
-        if (pb != bus_b_.load()) {
-          bus_b_ = pb;
-        }
         if (pb != real_b_.load()) {
           if (now - last_b_change_ms_ > 1500) {
             real_b_ = pb;
-            if (retry_b_ == 0)
-              target_b_ = pb;
-            if (b_select_) {
-              b_select_->publish_state((pb == 1)   ? "Niveau1"
-                                       : (pb == 2) ? "Niveau2"
-                                       : (pb == 3) ? "Niveau3"
-                                                   : "Arret");
-            }
+            if (retry_b_ == 0) target_b_ = pb;
           }
         } else {
           last_b_change_ms_ = now;
@@ -442,13 +422,12 @@ protected:
         if (std::abs(ps - real_setpoint_) > 0.1f) {
           if (now - last_set_change_ms_ > 1500) {
             real_setpoint_ = ps;
-            if (setpoint_sensor_)
-              setpoint_sensor_->publish_state(ps);
           }
         } else {
           last_set_change_ms_ = now;
         }
       }
+
       if (id == 0x06) {
         float new_temp = d1 / 2.0f;
         if (std::abs(new_temp - real_temp_) > 0.1f) {
@@ -506,6 +485,33 @@ public:
         filter_alert_sensor_->publish_state(alert);
       }
     }
+
+    // --- UI SYNCHRONIZATION (Core 0) ---
+    // This decouples UART (Core 1) from Network/UI (Core 0)
+    if (f_switch_ && real_f_.load() != last_pub_f_.load()) {
+        last_pub_f_ = real_f_.load();
+        f_switch_->publish_state(last_pub_f_);
+    }
+    if (h_switch_ && real_h_.load() != last_pub_h_.load()) {
+        last_pub_h_ = real_h_.load();
+        h_switch_->publish_state(last_pub_h_);
+    }
+    if (u_switch_ && real_u_.load() != last_pub_u_.load()) {
+        last_pub_u_ = real_u_.load();
+        u_switch_->publish_state(last_pub_u_);
+    }
+    if (b_select_ && real_b_.load() != last_pub_b_.load()) {
+        last_pub_b_ = (int)real_b_.load();
+        int pb = last_pub_b_;
+        b_select_->publish_state((pb == 1)   ? "Niveau1"
+                                 : (pb == 2) ? "Niveau2"
+                                 : (pb == 3) ? "Niveau3"
+                                             : "Arret");
+    }
+    if (setpoint_sensor_ && std::abs(real_setpoint_ - last_pub_setpoint_) > 0.1f) {
+        last_pub_setpoint_ = real_setpoint_;
+        setpoint_sensor_->publish_state(last_pub_setpoint_);
+    }
   }
 
   uart::UARTComponent *uart_spa_{nullptr}, *uart_kbd_{nullptr};
@@ -520,7 +526,7 @@ public:
   uint32_t last_spa_ms_{0}, last_kbd_ms_{0}, last_watchdog_{0},
       last_http_ms_{0}, last_http_start_ms_{0};
   uint32_t last_spa_activity_{0}, last_kbd_activity_{0};
-  float real_temp_{0}, real_setpoint_{0};
+  float real_temp_{0}, real_setpoint_{0}, last_pub_setpoint_{0};
   std::atomic<uint32_t> last_pump_start_ms_{0};
   std::atomic<bool> http_busy_{false}, lock_{false}, eedomus_enabled_{true};
   std::deque<EedomusRequest> eedomus_queue_;
