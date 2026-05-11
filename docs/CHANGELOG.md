@@ -1,5 +1,10 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Restauration de la Non-Dictature (v7.5.13-STABLE)
+- **Conformité MITM** : Suppression de l'armement automatique du Sniper lors de la réception de touches physiques (Keyboard).
+- **Principe `target = real`** : Le contrôleur suit désormais les actions physiques au lieu de tenter de les imposer. Résout le conflit de "lutte" (oscillations ON/OFF) lors de l'utilisation des boutons du simulateur ou du spa.
+
+
 ### 2026-05-11 — Résolution Deadlock Mutex (v7.5.12-STABLE)
 - **Mutex Récursif** : Migration vers un mutex récursif pour permettre au Sniper d'injecter des commandes pendant que le bus est en cours de lecture par la tâche UART (résolution du deadlock d'auto-blocage).
 - **Stabilité Structurelle** : Correction du bug empêchant l'exécution des commandes `Injecting CMD` après un clic dans l'UI.

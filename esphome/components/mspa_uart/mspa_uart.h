@@ -77,7 +77,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.12-STABLE Starting...");
+    ESP_LOGI(TAG, "MSPA v7.5.13-STABLE Starting...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -275,34 +275,24 @@ protected:
             uint8_t id = buf[1];
             uint8_t d1 = buf[2];
 
-            // FIREWALL & SYNC TARGETS
+            // FIREWALL (On laisse passer sans armer le Sniper pour respecter la Non-Dictature)
             if (id == 0x01) { // HEAT
               if (lock_) {
                 buf[2] = real_h_.load() ? 0x01 : 0x00;
                 buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_h_ = (d1 > 0);
-                retry_h_ = 5; // ARM SNIPER
               }
             } else if (id == 0x02) { // FILT
               if (lock_) {
                 buf[2] = real_f_.load() ? 0x01 : 0x00;
                 buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_f_ = (d1 > 0);
-                retry_f_ = 5; // ARM SNIPER
               }
             } else if (id == 0x19) { // UVC
               if (lock_) {
                 buf[2] = real_u_.load() ? 0x01 : 0x00;
                 buf[len - 1] = is_extended ? (uint8_t)(buf[1] + buf[2] + buf[3] - 0x11) : (uint8_t)(buf[0] + buf[1] + buf[2]);
-              } else {
-                target_u_ = (d1 > 0);
-                retry_u_ = 5; // ARM SNIPER
               }
             } else if (id == 0x03 || (is_extended && id == 0x11)) { // BUBBLES
-              target_b_ = d1;
-              retry_b_ = 5; // ARM SNIPER
+              // On laisse passer sans armer le Sniper
               ESP_LOGI(TAG, "KBD: Bubble Command Detected (ID=0x%02X Lvl=%d)", id, d1);
             } else if (id == 0x04) { // SETPOINT
               // Passive capture of manual setpoint changes
