@@ -1,5 +1,24 @@
 # Historique des changements (MSPA ESP32)
 
+### 2026-05-11 — Restauration Décentralisée (v7.5.22-BIBLE-ULTRA)
+- **Architecture v7.5.14** : Retour à la distribution de la charge réseau entre les deux cœurs. Le Core 1 gère ses propres `publish_state` filtrés, libérant le Core 0 pour le Web.
+- **Loop Safety (Anti-Freeze)** : Implémentation d'une bride de 64 octets par cycle UART et timeout Mutex de 10ms. Élimine tout risque de Hard Lockup CPU.
+- **Validation Temporelle** : Certification de la réactivité du Sniper et de la précision des filtres Silk/Ghost.
+- **Résultat** : Web Server instantané et Bus MSPA 100% protégé.
+
+### 2026-05-11 — Isolation Atomique (v7.5.17-BIBLE-ULTRA)
+- **Sécurité Multi-Cœur (Atomics)** : Conversion de toutes les variables partagées (Température, Consigne, États) en `std::atomic<float>` et `std::atomic<bool>`. Élimine les risques de Race Condition observés en v7.5.16.
+- **Boot Safety Lock** : Ajout d'un flag `is_ready_` pour différer l'activité du Watchdog (Core 0) tant que le setup n'est pas terminé. Empêche les crashs au démarrage.
+- **Sanctuarisation du Core 1** : Confirmation de l'isolation totale. La tâche UART ne fait plus que de la lecture/écriture mémoire atomique.
+
+
+### 2026-05-11 — Sanctuarisation Architecturale (v7.5.16-BIBLE-ULTRA)
+- **Isolation Totale (Core Isolation)** : Découplage radical entre la tâche UART (Core 1) et l'interface utilisateur (Core 0). Suppression de tous les appels `publish_state` du Core 1.
+- **Watchdog Sync** : Les mises à jour de l'UI sont désormais gérées exclusivement par le Core 0 à une fréquence stabilisée (2Hz), évitant toute saturation réseau ou CPU.
+- **Suivi Moteur Physique** : Ajout du décodage de la trame `0x08` pour distinguer l'activité réelle des pompes de l'affichage des icônes IHM.
+- **Résolution du Freeze UI** : En libérant le Core 1 des tâches réseau, le système reste fluide même lors des pires tempêtes de bus ou d'alertes clignotantes.
+
+
 ### 2026-05-11 — Blindage de Production (v7.5.15-PROD-READY)
 - **Silk Filter Asymétrique** : Refonte de la logique de lissage (ON immédiat, OFF 1500ms). Garantit une interface stable même lors des alertes clignotantes.
 - **Sniper Shield** : La comparaison du Sniper se base désormais sur l'état filtré (`real_`) au lieu de l'état brut du bus, évitant ainsi les tirs parasites pendant les alertes.
