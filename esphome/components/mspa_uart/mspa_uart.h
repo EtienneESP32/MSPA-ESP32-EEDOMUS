@@ -135,7 +135,7 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "MSPA v7.5.38-DIAMOND-FINAL Starting (Master Sanctuary v3)...");
+    ESP_LOGI(TAG, "MSPA v7.5.24-BIBLE-ULTRA Starting (Master Sanctuary v2)...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -292,16 +292,16 @@ protected:
     // Sniper (Lock minimal uniquement sur l'écriture vers SPA)
     if (is_sync_.load()) {
       if (retry_f_.load() > 0) {
-        if (inject_cmd(0x02, target_f_.load() ? 0x01 : 0x00))  // 0x02 = Filtration
+        if (inject_cmd(0x01, target_f_.load() ? 0x01 : 0x00))
           retry_f_--;
       } else if (retry_h_.load() > 0) {
-        if (inject_cmd(0x01, target_h_.load() ? 0x01 : 0x00))  // 0x01 = Chauffage
+        if (inject_cmd(0x01, target_h_.load() ? 0x01 : 0x00))
           retry_h_--;
       } else if (retry_u_.load() > 0) {
-        if (inject_cmd(0x19, target_u_.load() ? 0x01 : 0x00))  // 0x19 = UVC
+        if (inject_cmd(0x01, target_u_.load() ? 0x01 : 0x00))
           retry_u_--;
       } else if (retry_b_.load() > 0) {
-        if (inject_cmd(0x03, (uint8_t)target_b_.load()))        // 0x03 = Bulles
+        if (inject_cmd(0x03, (uint8_t)target_b_.load()))
           retry_b_--;
       }
     }
