@@ -1,10 +1,10 @@
-# Controleur MSPA – Version 7.5.37-DIAMOND-FINAL
+# Controleur MSPA – Version 7.5.38-DIAMOND-FINAL
 # [EVOLUTION] Phase 2: Double File FIFO Priorisée
 # [LOGIQUE] Flux Action (Front) / Flux Status (Back)
 # [DATE] 12/05/2026 00:38
 
 substitutions:
-  mspa_version: "7.5.38-DIAMOND"
+  mspa_version: "7.5.38-DIAMOND-FINAL"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -183,7 +183,6 @@ globals:
   - id: g_setpoint
     type: float
     initial_value: "38.0"
-debug:
 
 binary_sensor:
   - platform: template
@@ -224,13 +223,6 @@ sensor:
               id(g_temp_eau) = x;
               id(mspa_logic)->enqueue_eedomus(${periph_temp_eau}, x, true);
             }
-  - platform: debug
-    free:
-      name: "Heap Libre"
-    block:
-      name: "Plus gros bloc Heap"
-    loop_time:
-      name: "Temps de boucle"
 
 text_sensor:
   - platform: template
