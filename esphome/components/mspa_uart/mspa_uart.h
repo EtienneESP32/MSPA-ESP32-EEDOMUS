@@ -474,25 +474,25 @@ protected:
       // --- PHASE 4: ARBITRAGE DIAMOND (10s timeout avant Revert) ---
       uint32_t now = millis();
       
-      // Filtration Revert — vérité = moteur physique (0x08), pas l'enveloppe IHM
+      // Filtration Revert
       if (retry_f_.load() == 0 && (now - last_f_cmd_ms_.load() > 10000) && (now - last_f_cmd_ms_.load() < 60000)) {
-          if (target_f_.load() != physical_f_on_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande Filtration échouée. Revert -> %s.", physical_f_on_.load() ? "ON" : "OFF");
-              target_f_ = physical_f_on_.load();
+          if (target_f_.load() != bus_f_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande Filtration échouée. Revert.");
+              target_f_ = bus_f_.load();
               if (f_switch_) f_switch_->publish_state(target_f_.load());
               last_f_cmd_ms_ = 0;
           }
       }
-      // Chauffage Revert — vérité = moteur physique (0x08)
+      // Chauffage Revert
       if (retry_h_.load() == 0 && (now - last_h_cmd_ms_.load() > 10000) && (now - last_h_cmd_ms_.load() < 60000)) {
-          if (target_h_.load() != physical_h_on_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande Chauffage échouée. Revert -> %s.", physical_h_on_.load() ? "ON" : "OFF");
-              target_h_ = physical_h_on_.load();
+          if (target_h_.load() != bus_h_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande Chauffage échouée. Revert.");
+              target_h_ = bus_h_.load();
               if (h_switch_) h_switch_->publish_state(target_h_.load());
               last_h_cmd_ms_ = 0;
           }
       }
-      // UVC Revert (pas de relais physique dédié, on garde bus_u_)
+      // UVC Revert
       if (retry_u_.load() == 0 && (now - last_u_cmd_ms_.load() > 10000) && (now - last_u_cmd_ms_.load() < 60000)) {
           if (target_u_.load() != bus_u_.load()) {
               ESP_LOGW(TAG, "Diamond: Commande UVC échouée. Revert.");
