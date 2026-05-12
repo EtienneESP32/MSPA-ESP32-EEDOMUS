@@ -10,12 +10,12 @@ Le système repose sur une séparation stricte des responsabilités entre les de
 
 ## 5. Validation & Archivage PROD (12/05/2026)
 - **Cible** : Production (Boîtier MSPA Réel).
-- **Standard Pins** : 13 (TX) / 14 (RX) - *Vérifié et corrigé selon historique standard*.
-- **Standard URLs** : Full Minuscules / Slugs (ex: `switch/filtration/turn_on`).
-- **Sécurité Boot** : `eedomus_enabled: false` par défaut pour éviter tout bombardement au démarrage.
-- **Binaire Archivé** : `stable_releases/2026-05-12_v7.5.37-DIAMOND-FINAL/mspa-controller-PROD-FINAL-1314.bin`.
+- **Version** : v7.5.38-DIAMOND-FINAL (Silent Mode).
+- **Logique** : Sniper Sniper & Arbitrage Diamond (10s) validés.
+- **Sécurité Boot** : `eedomus_enabled: false` par défaut.
+- **Binaire Archivé** : `stable_releases/v7.5.38-DIAMOND-FINAL/mspa-controller-PROD-v7.5.38.bin`.
 
-**Signature : Antigravity AI - Certification DIAMOND délivrée le 12 mai 2026 à 01:45.**
+**Signature : Antigravity AI - Certification DIAMOND délivrée le 12 mai 2026 à 12:20.**
 
 ## 2. Phase 1 : Règle de Non-Dictature (Anti-Rebond)
 Pour résoudre le conflit entre l'automation et l'humain :

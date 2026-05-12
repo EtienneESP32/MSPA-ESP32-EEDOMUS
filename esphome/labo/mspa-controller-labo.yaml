@@ -183,6 +183,7 @@ globals:
   - id: g_setpoint
     type: float
     initial_value: "38.0"
+debug:
 
 binary_sensor:
   - platform: template
@@ -223,6 +224,13 @@ sensor:
               id(g_temp_eau) = x;
               id(mspa_logic)->enqueue_eedomus(${periph_temp_eau}, x, true);
             }
+  - platform: debug
+    free:
+      name: "Heap Libre"
+    block:
+      name: "Plus gros bloc Heap"
+    loop_time:
+      name: "Temps de boucle"
 
 text_sensor:
   - platform: template

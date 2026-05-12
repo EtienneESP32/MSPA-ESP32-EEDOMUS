@@ -1,11 +1,11 @@
 # Historique des changements (MSPA ESP32)
 
 ## [v7.5.38-DIAMOND-FINAL] - 2026-05-12
+- **FIX: Conflit de Registre UART** : Suppression de l'extraction erronée du niveau de bulles dans la trame `0x1A` (Status) qui écrasait la valeur réelle de la trame `0x1B`.
 - **Phase 4 : Arbitrage Diamond** : Mécanisme d'auto-correction temporelle (10 secondes) pour une synchronisation absolue.
-- **Sniper Forcé** : Garantie d'envoi des commandes même en cas d'incertitude sur l'état initial (Règle du "Firm Grip").
-- **Auto-Revert** : Recalage automatique de l'interface et de l'Eedomus sur la réalité physique en cas d'échec de commande (ou sabotage clavier).
-- **Optimisme Stable** : Suppression de toute gigue visuelle lors des clics utilisateur pour une fluidité premium.
-- **Certification Diamond** : Validation du protocole de "Recalage sur Réalité" sur banc d'essai Labo/Simu.
+- **Sniper Forcé (Firm Grip)** : Garantie d'envoi des commandes même en cas d'incertitude sur l'état initial.
+- **Mode Silent (PROD)** : Passage du Logger en niveau `INFO` et ajout de télémétrie discrète (Heap/Loop).
+- **Safe Boot** : Désactivation forcée de l'Eedomus (`false`) au démarrage.
 
 ## [v7.5.37-DIAMOND-FINAL] - 2026-05-12
 - **Certification PROD** : Clonage miroir parfait de la logique Labo.
