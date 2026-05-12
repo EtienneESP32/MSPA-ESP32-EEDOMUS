@@ -1,6 +1,18 @@
 # Historique des changements (MSPA ESP32)
 
-### 2026-05-12 — DIAMOND FINAL (v7.5.37)
+## [v7.5.38-DIAMOND-FINAL] - 2026-05-12
+- **Phase 4 : Arbitrage Diamond** : Mécanisme d'auto-correction temporelle (10 secondes) pour une synchronisation absolue.
+- **Sniper Forcé** : Garantie d'envoi des commandes même en cas d'incertitude sur l'état initial (Règle du "Firm Grip").
+- **Auto-Revert** : Recalage automatique de l'interface et de l'Eedomus sur la réalité physique en cas d'échec de commande (ou sabotage clavier).
+- **Optimisme Stable** : Suppression de toute gigue visuelle lors des clics utilisateur pour une fluidité premium.
+- **Certification Diamond** : Validation du protocole de "Recalage sur Réalité" sur banc d'essai Labo/Simu.
+
+## [v7.5.37-DIAMOND-FINAL] - 2026-05-12
+- **Certification PROD** : Clonage miroir parfait de la logique Labo.
+- **Correction Hardware** : Retour aux Pins UART 13/14 (Standard Historique).
+- **Standardisation** : URLs Eedomus en minuscules/slugs (Underscores au lieu d'espaces).
+- **Sécurité** : Lien Eedomus `OFF` par défaut au boot.
+- **Binaire** : `mspa-controller-PROD-FINAL-1314.bin` généré et archivé.
 - **Phase 2 (Double FIFO)** : Séparation priorisée des flux Action et Status.
 - **Phase 1 (Non-Dictature)** : Synchronisation clavier physique / cibles.
 - **Phase 3 (Hybride)** : Filtre d'Enveloppe (3s) + Priorité Moteur Physique.

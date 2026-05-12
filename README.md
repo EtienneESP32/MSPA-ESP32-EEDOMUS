@@ -1,6 +1,6 @@
 # 💎 MSPA Man-in-the-Middle Ecosystem (ESP32)
 
-[![Project Version: v6.3.11](https://img.shields.io/badge/Controller-v6.3.11--STABLE-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
+[![Project Version: v7.5.38](https://img.shields.io/badge/Controller-v7.5.38--DIAMOND-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
 [![Simulator Version: v1.6.9](https://img.shields.io/badge/Simulator-v1.6.9--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
 [![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
 [![Home Assistant: Ready](https://img.shields.io/badge/Home%20Assistant-Compatible-orange?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
@@ -120,4 +120,4 @@ Un problème ? Une erreur `4b` ou `5b` dans les logs ?
 
 ---
 
-*Projet maintenu par Etienne. Stabilité validée le 16/04/2026 (Controller v6.3.7 / Simulator v1.6.9).*
+*Projet maintenu par Etienne. Stabilité validée le 12/05/2026 (Controller v7.5.38-DIAMOND-FINAL / Simulator v1.8.2).*

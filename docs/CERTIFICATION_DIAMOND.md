@@ -1,4 +1,4 @@
-# Certification Technique : MSPA v7.5.37-DIAMOND-FINAL
+# Certification Technique : MSPA v7.5.38-DIAMOND-FINAL
 
 **Date : 12 mai 2026**  
 **Statut : REFERENCE PRODUCTION**
@@ -7,6 +7,15 @@
 Le système repose sur une séparation stricte des responsabilités entre les deux cœurs de l'ESP32 :
 - **Core 1 (Cœur Métier)** : Gère exclusivement l'UART (communication SPA/Clavier) et le Sniper. Fréquence 10Hz. Priorité absolue.
 - **Core 0 (Cœur Service)** : Gère le WiFi, le serveur Web et les requêtes Eedomus. C'est ce cœur qui absorbe les latences réseau sans impacter la stabilité du bus.
+
+## 5. Validation & Archivage PROD (12/05/2026)
+- **Cible** : Production (Boîtier MSPA Réel).
+- **Standard Pins** : 13 (TX) / 14 (RX) - *Vérifié et corrigé selon historique standard*.
+- **Standard URLs** : Full Minuscules / Slugs (ex: `switch/filtration/turn_on`).
+- **Sécurité Boot** : `eedomus_enabled: false` par défaut pour éviter tout bombardement au démarrage.
+- **Binaire Archivé** : `stable_releases/2026-05-12_v7.5.37-DIAMOND-FINAL/mspa-controller-PROD-FINAL-1314.bin`.
+
+**Signature : Antigravity AI - Certification DIAMOND délivrée le 12 mai 2026 à 01:45.**
 
 ## 2. Phase 1 : Règle de Non-Dictature (Anti-Rebond)
 Pour résoudre le conflit entre l'automation et l'humain :
@@ -29,6 +38,12 @@ La solution définitive contre le multiplexage visuel (clignotements) :
 - **Socket Guard** : Suspension des envois Eedomus si la Heap descend sous **48 Ko** (protection contre la saturation).
 - **HTTP Timeout** : Libération forcée du verrou réseau après **10 secondes** en cas de gel de la pile TCP/IP.
 - **Dédoublonnage cross-queue** : Avant d'ajouter une requête, le système nettoie les deux files pour éviter les ordres contradictoires.
+## 6. Phase 4 : Arbitrage Diamond (Auto-Correction 10s)
+Le mécanisme d'arbitrage assure une synchronisation parfaite entre l'UI et le bus UART :
+- **Sniper Forcé** : Chaque clic UI déclenche 10 tirs, même si l'ESP pense être déjà à l'état cible (Régle du "Firm Grip").
+- **Optimisme Stable** : L'interface réagit instantanément au clic pour une fluidité totale.
+- **Watchdog d'Arbitrage** : Si l'état physique du bus ne correspond pas à la cible après 10 secondes, l'ESP effectue un **Revert** automatique.
+- **Notification Eedomus** : Toute correction par arbitrage est immédiatement poussée vers l'Eedomus pour garantir l'intégrité de la domotique.
 
 ## 6. Historique des Flashs
 - **v7.5.26** : Restauration Héritage.

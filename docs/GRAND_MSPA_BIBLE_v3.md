@@ -1,10 +1,10 @@
-# LA GRANDE BIBLE MSPA (v3.5)
+# LA GRANDE BIBLE MSPA (v3.6)
 ## Le Référentiel de Vérité Absolue – Architecture & Protocole
 
 > [!IMPORTANT]
-> **Version de Référence : v7.5.37-DIAMOND-FINAL**  
-> **État du Projet : Certified Diamond / Master Sanctuary v2**  
-> Ce document est la synthèse ultime de l'intelligence acquise sur la résilience dual-core et la gestion des flux asynchrones.
+> **Version de Référence : v7.5.38-DIAMOND-FINAL**  
+> **État du Projet : Certified Diamond / Master Sanctuary v3**  
+> Ce document est la synthèse ultime de l'intelligence acquise sur l'arbitrage temporel et la résilience dual-core.
 
 ---
 
@@ -128,7 +128,16 @@ Pour une fluidité totale de l'interface Eedomus :
 
 ---
 
-## 6. Intégration Eedomus Universelle (VAR1)
+## 6. L'Arbitrage Diamond (Phase 4)
+
+*   **L'UI Optimiste** : Pour une sensation de fluidité premium, l'interface bascule sur l'état demandé par l'utilisateur à la milliseconde même du clic (sans attendre le bus).
+*   **Le Sniper Déterminé** : Contrairement aux versions précédentes, le Sniper tire systématiquement 10 fois lors d'une action UI, garantissant que même une commande "confuse" (état déjà présumé correct) est envoyée avec fermeté.
+*   **Le Watchdog de Réalité (10s)** :
+    *   Le système lance un décompte de 10 secondes après chaque commande.
+    *   Si à l'issue de ce délai, l'état physique du bus UART ne correspond toujours pas à l'interface, l'ESP force un **Revert**.
+    *   L'interface "saute" pour revenir à la réalité physique.
+    *   L'Eedomus est immédiatement mise à jour.
+*   **Sanctuaire Clavier** : Toute pression sur le clavier physique (vu sur le bus) annule instantanément le Sniper en cours (Règle de Non-Dictature).
 
 > [!IMPORTANT]
 > **MAI 2026** : L'Eedomus de PROD autorise désormais les requêtes API en **HTTP standard** (Désactivation du HTTPS obligatoire pour soulager la pile TLS de l'ESP32).
@@ -151,4 +160,4 @@ L'ESP32 v6.9.30+ impose l'utilisation des Noms d'entités (Majuscules + Espaces)
 *   **Mode Bulles** : `http://[VAR1]/select/Mode%20Bulles/set?option=Niveau1`
 
 ---
-*Sanctuarisé le 12/05/2026 - Version DIAMOND FINAL - v3.5.*
+*Sanctuarisé le 12/05/2026 - Version DIAMOND FINAL - v3.6.*

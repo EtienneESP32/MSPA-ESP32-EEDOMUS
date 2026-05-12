@@ -4,7 +4,7 @@
 # [DATE] 12/05/2026 00:38
 
 substitutions:
-  mspa_version: "7.5.37-DIAMOND"
+  mspa_version: "7.5.38-DIAMOND"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
@@ -97,6 +97,7 @@ time:
     id: sntp_time
     timezone: "Europe/Paris"
     servers: ["pool.ntp.org", "time.cloudflare.com"]
+    update_interval: 24h
     on_time_sync:
       then:
         - lambda: |-
@@ -114,11 +115,15 @@ time:
 
 logger:
   level: DEBUG
+  baud_rate: 0
   logs:
     mspa_uart: DEBUG
-    http_request: DEBUG
+    http_request: INFO
     api: WARN
     wifi: WARN
+    main: INFO
+    text_sensor: INFO
+    binary_sensor: INFO
 
 web_server:
   port: 80
@@ -384,8 +389,7 @@ select:
       then:
         - lambda: |-
             uint8_t val = (x == "Niveau1")?1:(x == "Niveau2")?2:(x == "Niveau3")?3:0;
-            id(mspa_logic)->target_b_ = val;
-            id(mspa_logic)->retry_b_ = 5;
+            id(mspa_logic)->control_bubbles(val);
     on_value:
       then:
         - lambda: |-

@@ -76,8 +76,6 @@ public:
   std::atomic<int> bus_b_{0};
   std::atomic<uint32_t> last_on_f_{0}, last_on_h_{0}, last_on_u_{0};
   std::atomic<uint32_t> last_spa_ms_{0}, last_kbd_ms_{0};
-  std::atomic<uint32_t> last_f_cmd_ms_{0}, last_h_cmd_ms_{0}, last_u_cmd_ms_{0},
-      last_b_cmd_ms_{0};
 
   void enqueue_eedomus(int p_id, float val, bool is_f, bool force = false) {
     if (!eedomus_enabled_.load())
@@ -199,37 +197,35 @@ public:
 
   // --- ACTIONS MAITRES (Reset Logic) ---
   void control_filtration(bool state) {
-    target_f_ = state;
-    retry_f_ = 10;
-    is_blinking_f_ = false;
-    last_f_change_ms_ = millis() - 2000;
-    last_f_cmd_ms_ = millis();
-    if (f_switch_) f_switch_->publish_state(state); // Optimistic UI
+    if (target_f_.load() != state) {
+      target_f_ = state;
+      retry_f_ = 10;
+      is_blinking_f_ = false;              // Reset Ghost
+      last_f_change_ms_ = millis() - 2000; // Prime Silk Filter
+      lc_f_ = millis();
+    }
   }
   void control_heating(bool state) {
-    target_h_ = state;
-    retry_h_ = 10;
-    is_blinking_h_ = false;
-    last_h_change_ms_ = millis() - 2000;
-    last_h_cmd_ms_ = millis();
-    if (h_switch_) h_switch_->publish_state(state); // Optimistic UI
+    if (target_h_.load() != state) {
+      target_h_ = state;
+      retry_h_ = 10;
+      is_blinking_h_ = false;              // Reset Ghost
+      last_h_change_ms_ = millis() - 2000; // Prime Silk Filter
+      lc_h_ = millis();
+    }
   }
   void control_uvc(bool state) {
-    target_u_ = state;
-    retry_u_ = 10;
-    last_u_change_ms_ = millis() - 2000;
-    last_u_cmd_ms_ = millis();
-    if (u_switch_) u_switch_->publish_state(state); // Optimistic UI
+    if (target_u_.load() != state) {
+      target_u_ = state;
+      retry_u_ = 10;
+      last_u_change_ms_ = millis() - 2000; // Prime Silk Filter
+    }
   }
   void control_bubbles(int level) {
-    target_b_ = level;
-    retry_b_ = 10;
-    last_b_change_ms_ = millis() - 2000;
-    last_b_cmd_ms_ = millis();
-    if (b_select_) {
-        b_select_->publish_state((level == 1) ? "Niveau1" : 
-                                 (level == 2) ? "Niveau2" : 
-                                 (level == 3) ? "Niveau3" : "Arret");
+    if (target_b_.load() != level) {
+      target_b_ = level;
+      retry_b_ = 10;
+      last_b_change_ms_ = millis() - 2000; // Prime Silk Filter
     }
   }
 
@@ -471,47 +467,6 @@ protected:
       if (retry_reset_.load() > 0) {
         if (inject_cmd(0x02, 0x01))
           retry_reset_--;
-      }
-
-      // --- PHASE 4: ARBITRAGE DIAMOND (10s timeout avant Revert) ---
-      uint32_t now = millis();
-      
-      // Filtration Revert
-      if (retry_f_.load() == 0 && (now - last_f_cmd_ms_.load() > 10000) && (now - last_f_cmd_ms_.load() < 60000)) {
-          if (target_f_.load() != bus_f_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande Filtration échouée. Revert.");
-              target_f_ = bus_f_.load();
-              if (f_switch_) f_switch_->publish_state(target_f_.load());
-              last_f_cmd_ms_ = 0;
-          }
-      }
-      // Chauffage Revert
-      if (retry_h_.load() == 0 && (now - last_h_cmd_ms_.load() > 10000) && (now - last_h_cmd_ms_.load() < 60000)) {
-          if (target_h_.load() != bus_h_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande Chauffage échouée. Revert.");
-              target_h_ = bus_h_.load();
-              if (h_switch_) h_switch_->publish_state(target_h_.load());
-              last_h_cmd_ms_ = 0;
-          }
-      }
-      // UVC Revert
-      if (retry_u_.load() == 0 && (now - last_u_cmd_ms_.load() > 10000) && (now - last_u_cmd_ms_.load() < 60000)) {
-          if (target_u_.load() != bus_u_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande UVC échouée. Revert.");
-              target_u_ = bus_u_.load();
-              if (u_switch_) u_switch_->publish_state(target_u_.load());
-              last_u_cmd_ms_ = 0;
-          }
-      }
-      // Bulles Revert
-      if (retry_b_.load() == 0 && (now - last_b_cmd_ms_.load() > 10000) && (now - last_b_cmd_ms_.load() < 60000)) {
-          if (target_b_.load() != bus_b_.load()) {
-              ESP_LOGW(TAG, "Diamond: Commande Bulles échouée. Revert.");
-              target_b_ = bus_b_.load();
-              int pb = bus_b_.load();
-              if (b_select_) b_select_->publish_state((pb==1)?"Niveau1":(pb==2)?"Niveau2":(pb==3)?"Niveau3":"Arret");
-              last_b_cmd_ms_ = 0;
-          }
       }
     }
   }

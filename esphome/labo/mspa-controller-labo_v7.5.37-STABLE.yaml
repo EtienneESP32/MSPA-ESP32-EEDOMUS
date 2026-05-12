@@ -1,10 +1,11 @@
-# Controleur MSPA – Version 6.9.30-PROD (Migration Labo)
-# RESTAURATION TOTALE - RÉGLAGES PRODUCTION
-# LOGIQUE CLONE SANCTUARY v6.7.8 (Stable 16 Sockets)
+# Controleur MSPA – Version 7.5.37-DIAMOND-FINAL
+# [EVOLUTION] Phase 2: Double File FIFO Priorisée
+# [LOGIQUE] Flux Action (Front) / Flux Status (Back)
+# [DATE] 12/05/2026 00:38
 
 substitutions:
-  mspa_version: "v7.4.8-FINAL"
-  eedomus_enabled: "false"
+  mspa_version: "7.5.37-DIAMOND"
+  eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user
   eedomus_api_secret: !secret eedomus_api_secret
@@ -26,7 +27,7 @@ substitutions:
 external_components:
   - source:
       type: local
-      path: components
+      path: ../components
     components: [ mspa_uart ]
 
 mspa_uart:
@@ -36,7 +37,7 @@ mspa_uart:
 
 esphome:
   name: mspa-controller
-  friendly_name: MSPA ${mspa_version}
+  friendly_name: MSPA v${mspa_version}
   on_boot:
     priority: 800
     then:
@@ -50,13 +51,11 @@ esphome:
           id(mspa_logic)->set_b_select(id(mode_bulles));
           id(mspa_logic)->set_link_sensor(id(motor_link));
           id(mspa_logic)->set_kbd_link_sensor(id(kbd_link));
-          id(mspa_logic)->set_lock(id(verrouillage_clavier).state);
-          id(mspa_logic)->set_eedomus_callback([=](int p_id, float p_val, bool p_f) -> void {
-            if (id(g_eedomus_enabled)) {
+          id(mspa_logic)->set_eedomus_enabled(${eedomus_enabled});
+          id(mspa_logic)->set_eedomus_callback([=](int p_id, float p_val, bool p_f) {
+            App.scheduler.set_timeout(id(mspa_logic), "push_eedomus", 0, [=]() {
               id(script_push_eedomus).execute(p_id, p_val, p_f);
-            } else {
-              id(mspa_logic)->set_http_busy(false);
-            }
+            });
           });
 
 esp32:
@@ -109,19 +108,22 @@ time:
                 id(txt_boot_time).publish_state(id(boot_time_str));
                 if (!id(initial_sync_requested)) {
                   id(initial_sync_requested) = true;
-                  // id(script_soft_sync).execute();  <-- DESACTIVE POUR STABILISATION
+                  id(script_soft_sync).execute();
                 }
               }
             }
 
 logger:
-  level: INFO
-  baud_rate: 0 
+  level: DEBUG
+  baud_rate: 0
   logs:
     mspa_uart: DEBUG
-    main: INFO
+    http_request: INFO
     api: WARN
     wifi: WARN
+    main: INFO
+    text_sensor: INFO
+    binary_sensor: INFO
 
 web_server:
   port: 80
@@ -147,7 +149,7 @@ globals:
     initial_value: "false"
   - id: g_eedomus_enabled
     type: bool
-    initial_value: ${eedomus_enabled}
+    initial_value: "true"
   - id: needs_push_alert
     type: bool
     initial_value: "false"
@@ -242,96 +244,88 @@ text_sensor:
     icon: "mdi:calendar-clock"
     update_interval: never
     internal: true
-  - platform: template
-    name: "Version Logicielle"
-    id: txt_version
-    icon: "mdi:label-variant-outline"
-    update_interval: never
-    lambda: |-
-      return {"${mspa_version}"};
 
 switch:
   - platform: template
     name: "Filtration"
     id: filtration
     icon: "mdi:filter-variant"
-    lambda: 'return id(mspa_logic)->get_display_f();'
+    optimistic: false
     turn_on_action:
-      - logger.log: "UI: Click Filtration ON"
       - lambda: 'id(mspa_logic)->control_filtration(true);'
     turn_off_action:
       - lambda: |-
-          if (id(chauffage).state || id(uvc).state) {
-            ESP_LOGW("main", "Refus Filtration OFF : Chauffage ou UVC est ON");
+          if (id(chauffage).state) {
+            ESP_LOGW("main", "Refus Filtration OFF : Chauffage est ON");
             id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 1, false, true);
           } else {
             id(mspa_logic)->control_filtration(false);
           }
     on_turn_on:
-      then:
-        - lambda: |-
-            if (true != id(g_f)) {
-              id(g_f) = true;
-              id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 1, false, true);
-            }
+      - lambda: |-
+          if (!id(g_f)) {
+            id(g_f) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 1, false, true);
+          }
     on_turn_off:
-      then:
-        - lambda: |-
-            id(chauffage).turn_off();
-            id(uvc).turn_off();
-            if (false != id(g_f)) {
-              id(g_f) = false;
-              id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 0, false, true);
-            }
+      - lambda: |-
+          if (id(g_f)) {
+            id(g_f) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 0, false, true);
+          }
+
+  - platform: template
+    name: "Lien Eedomus"
+    id: eedomus_link_switch
+    icon: "mdi:cloud-sync"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - lambda: 'id(mspa_logic)->set_eedomus_enabled(true); id(g_eedomus_enabled) = true;'
+    on_turn_off:
+      - lambda: 'id(mspa_logic)->set_eedomus_enabled(false); id(g_eedomus_enabled) = false;'
   - platform: template
     name: "Chauffage"
     id: chauffage
     icon: "mdi:fire"
-    lambda: 'return id(mspa_logic)->get_display_h();'
+    optimistic: false
     turn_on_action:
-      - switch.turn_on: filtration
-      - logger.log: "UI: Click Chauffage ON"
       - lambda: 'id(mspa_logic)->control_heating(true);'
     turn_off_action:
-      - lambda: 'id(mspa_logic)->control_heating(false);'
+      - lambda: id(mspa_logic)->control_heating(false);
     on_turn_on:
-      then:
-        - lambda: |-
-            if (true != id(g_h)) {
-              id(g_h) = true;
-              id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 1, false, true);
-            }
+      - lambda: |-
+          if (!id(g_h)) {
+            id(g_h) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 1, false, true);
+          }
     on_turn_off:
-      then:
-        - lambda: |-
-            if (false != id(g_h)) {
-              id(g_h) = false;
-              id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 0, false, true);
-            }
+      - lambda: |-
+          if (id(g_h)) {
+            id(g_h) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 0, false, true);
+          }
   - platform: template
     name: "UVC"
     id: uvc
     icon: "mdi:lightbulb-uv"
-    lambda: 'return id(mspa_logic)->get_display_u();'
+    optimistic: false
     turn_on_action:
-      - switch.turn_on: filtration
       - lambda: 'id(mspa_logic)->control_uvc(true);'
     turn_off_action:
-      - lambda: 'id(mspa_logic)->control_uvc(false);'
+      - lambda: id(mspa_logic)->control_uvc(false);
     on_turn_on:
-      then:
-        - lambda: |-
-            if (true != id(g_u)) {
-              id(g_u) = true;
-              id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 1, false, true);
-            }
+      - lambda: |-
+          if (!id(g_u)) {
+            id(g_u) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 1, false, true);
+          }
     on_turn_off:
-      then:
-        - lambda: |-
-            if (false != id(g_u)) {
-              id(g_u) = false;
-              id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 0, false, true);
-            }
+      - lambda: |-
+          if (id(g_u)) {
+            id(g_u) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 0, false, true);
+          }
   - platform: template
     name: "Verrouillage Clavier"
     id: verrouillage_clavier
@@ -355,11 +349,9 @@ switch:
     optimistic: false
     turn_on_action:
       - script.execute: script_reset_burst
-    turn_off_action:
-      - script.stop: script_reset_burst
 
   - platform: template
-    name: "Consigne Plus"
+    name: "consigne_plus"
     id: consigne_plus
     internal: false
     icon: "mdi:plus-circle-outline"
@@ -373,7 +365,7 @@ switch:
       - switch.turn_off: consigne_plus
 
   - platform: template
-    name: "Consigne Moins"
+    name: "consigne_moins"
     id: consigne_moins
     internal: false
     icon: "mdi:minus-circle-outline"
@@ -392,10 +384,8 @@ select:
     id: mode_bulles
     icon: "mdi:chart-bubble"
     options: ["Arret", "Niveau1", "Niveau2", "Niveau3"]
-    update_interval: never
-    optimistic: false
     lambda: |-
-      int val = id(mspa_logic)->get_display_b();
+      int val = id(mspa_logic)->real_b_.load();
       if (val == 1) return std::string("Niveau1");
       if (val == 2) return std::string("Niveau2");
       if (val == 3) return std::string("Niveau3");
@@ -404,7 +394,8 @@ select:
       then:
         - lambda: |-
             uint8_t val = (x == "Niveau1")?1:(x == "Niveau2")?2:(x == "Niveau3")?3:0;
-            id(mspa_logic)->control_bubbles(val);
+            id(mspa_logic)->target_b_ = val;
+            id(mspa_logic)->retry_b_ = 5;
     on_value:
       then:
         - lambda: |-
@@ -424,12 +415,14 @@ number:
     min_value: 20
     max_value: 40
     step: 1.0
-    update_interval: never
     initial_value: 38.0
     on_value:
       then:
         - lambda: |-
-            id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, x, true, true);
+            if (x != id(g_setpoint)) {
+              id(g_setpoint) = x;
+              id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, x, true, true);
+            }
     set_action:
       then:
         - lambda: |-
@@ -463,8 +456,45 @@ script:
             lambda: |-
               id(mspa_logic)->set_http_busy(false);
           on_error:
-            - logger.log: "Eedomus FAIL (Reseau/DNS)"
-            - lambda: 'id(mspa_logic)->set_http_busy(false);'
+            then:
+              - lambda: 'id(mspa_logic)->set_http_busy(false);'
+              - logger.log: "Eedomus FAIL (Reseau/DNS)"
+
+  - id: script_soft_sync
+    mode: single
+    then:
+      - delay: 10s
+      - logger.log: "Synchronisation initiale (File d'attente intelligente)..."
+      - lambda: |-
+          id(g_setpoint) = id(consigne_temperature).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_f) = id(filtration).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_filtration}, id(g_f) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_h) = id(chauffage).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, id(g_h) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_u) = id(uvc).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_uvc}, id(g_u) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_lock) = id(verrouillage_clavier).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, id(g_lock) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          int val = (id(mode_bulles).state == "Niveau1")?1:(id(mode_bulles).state == "Niveau2")?2:(id(mode_bulles).state == "Niveau3")?3:0;
+          id(g_b) = val;
+          id(mspa_logic)->enqueue_eedomus(${periph_bulles}, (float)val, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(mspa_logic)->enqueue_eedomus(${periph_alerte_filtre}, id(filt_alert).state ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: 'id(mspa_logic)->enqueue_eedomus(${periph_temp_eau}, id(cur_temp).state, true, true);'
+      - logger.log: "Sync initiale mise en file d'attente."
 
   - id: script_reset_burst
     mode: restart
@@ -472,52 +502,15 @@ script:
       - switch.template.publish:
           id: action_reset_alerte
           state: ON
-      - lambda: 'id(mspa_logic)->inject_cmd(0x02, 0x01);'
+      - repeat:
+          count: 40
+          then:
+            - lambda: 'id(mspa_logic)->inject_cmd(0x02, 0x01);'
+            - delay: 100ms
       - switch.template.publish:
           id: action_reset_alerte
           state: OFF
       - logger.log: "Rafale de Reset terminée (4.0s)"
-
-  - id: script_soft_sync
-    mode: single
-    then:
-      - delay: 30s
-      - logger.log: "Synchronisation initiale PRIORITAIRE (Consigne)..."
-      - lambda: |-
-          id(g_setpoint) = id(consigne_temperature).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true, true);
-      - delay: 15s
-      - logger.log: "Synchronisation initiale progressive (v6.9.20)..."
-      - lambda: |-
-          id(g_f) = id(filtration).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_filtration}, id(g_f) ? 1 : 0, false);
-      - delay: 15s
-      - lambda: |-
-          id(g_h) = id(chauffage).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, id(g_h) ? 1 : 0, false);
-      - delay: 15s
-      - lambda: |-
-          id(g_u) = id(uvc).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_uvc}, id(g_u) ? 1 : 0, false);
-      - delay: 15s
-      - lambda: |-
-          id(g_lock) = id(verrouillage_clavier).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, id(g_lock) ? 1 : 0, false);
-      - delay: 15s
-      - lambda: |-
-          int val = (id(mode_bulles).state == "Niveau1")?1:(id(mode_bulles).state == "Niveau2")?2:(id(mode_bulles).state == "Niveau3")?3:0;
-          id(g_b) = val;
-          id(mspa_logic)->enqueue_eedomus(${periph_bulles}, (float)val, false);
-      - delay: 15s
-      - lambda: |-
-          id(g_setpoint) = id(consigne_temperature).state;
-          id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true);
-      - delay: 15s
-      - lambda: |-
-          id(mspa_logic)->enqueue_eedomus(${periph_alerte_filtre}, id(filt_alert).state ? 1 : 0, false);
-      - delay: 15s
-      - lambda: 'id(mspa_logic)->enqueue_eedomus(${periph_temp_eau}, id(cur_temp).state, true);'
-      - logger.log: "Sync initiale terminée."
 
 interval:
   - interval: 1s
