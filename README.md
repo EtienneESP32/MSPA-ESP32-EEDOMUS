@@ -1,8 +1,8 @@
 # 💎 MSPA Man-in-the-Middle Ecosystem (ESP32)
 
-[![Project Version: v7.5.38](https://img.shields.io/badge/Controller-v7.5.38--DIAMOND-blueviolet?style=for-the-badge)](esphome/mspa-controller.yaml)
-[![Simulator Version: v1.6.9](https://img.shields.io/badge/Simulator-v1.6.9--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
-[![Sniffer Version: v1.0.0](https://img.shields.io/badge/Sniffer-v1.0.0--STABLE-blue?style=for-the-badge)](esphome/mspa-sniffer.yaml)
+[![Project Version: v7.5.40-GOLD](https://img.shields.io/badge/Controller-v7.5.40--GOLD-gold?style=for-the-badge)](stable_releases/v7.5.40-GOLD/src/mspa-controller-labo.yaml)
+[![Status: Platinum Certified](https://img.shields.io/badge/Certification-PLATINUM--CERTIFIED-success?style=for-the-badge&logo=securityscorecard&logoColor=white)](stable_releases/v7.5.40-GOLD/docs/CERTIFICATION_REPORT.md)
+[![Simulator Version: v1.8.2](https://img.shields.io/badge/Simulator-v1.8.2--ATOMIC-green?style=for-the-badge)](esphome/mspa-simulator.yaml)
 [![Home Assistant: Ready](https://img.shields.io/badge/Home%20Assistant-Compatible-orange?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
 
 > **Keywords**: `MSPA`, `Tribeca`, `ESP32`, `ESPHome`, `Home Assistant`, `Eedomus`, `Man-in-the-Middle`, `UART`, `Smart-Home`, `DIY-Spa`
@@ -61,6 +61,17 @@ sequenceDiagram
 ### ✨ Pourquoi c'est différent ?
 - **Silk Filter** : L'interface utilisateur ne "devine" jamais l'état du spa. Elle attend la confirmation réelle venant du bit de retour de la pompe/chauffe pour s'allumer.
 - **Safe-Cap 40°C** : Sécurité logicielle interdisant toute consigne supérieure à la limite constructeur.
+
+---
+
+## 🎖️ Certification PLATINUM (v7.5.40-GOLD)
+
+La version **GOLD** a subi une batterie de tests de torture pour garantir une stabilité industrielle :
+*   **Socket Guard v2** : Protection contre l'épuisement de la RAM (Zéro Reboot sous stress).
+*   **Arbitrage Diamond** : Priorité absolue au bus physique sur les commandes logicielles (Anti-Dictature).
+*   **Immunité au Bruit** : Filtrage logiciel des oscillations de bus jusqu'à 10Hz.
+
+👉 [Consulter le Rapport d'Audit Complet](stable_releases/v7.5.40-GOLD/docs/CERTIFICATION_REPORT.md)
 ---
 
 ## 🏠 Compatibilité Home Assistant
@@ -120,4 +131,4 @@ Un problème ? Une erreur `4b` ou `5b` dans les logs ?
 
 ---
 
-*Projet maintenu par Etienne. Stabilité validée le 12/05/2026 (Controller v7.5.38-DIAMOND-FINAL / Simulator v1.8.2).*
+*Projet maintenu par Etienne. Stabilité PLATINUM validée le 13/05/2026 (Controller v7.5.40-GOLD / Simulator v1.8.2).*
