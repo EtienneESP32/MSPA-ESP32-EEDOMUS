@@ -25,46 +25,8 @@ class MspaSimTask : public Component {
           uint8_t f1A = 0x08; 
           
           bool is_heating_blink = ((now % 4000) < 2000); // Chauffe: 2s ON, 2s OFF
-          // Rythme de Veille/Polling natif de la carte mère : 1s ON, 8s OFF
-          bool is_polling_blink = ((now % 9000) < 1000); 
+          bool is_polling_blink = ((now % 9000) < 1000); // Veille: 1s ON, 8s OFF
           bool blink_alert = (now % 1000 < 500);         // Alerte: Rapide 0.5s
-
-          // --- DYNAMIQUE THERMIQUE AUTOMATIQUE ---
-          static uint32_t last_heat_tick = now;
-          static uint32_t last_cool_tick = now;
-          if (heat_ph > 0) {
-              if (temp >= setpoint) {
-                  // Consigne atteinte : Arrêt automatique de la chauffe
-                  id(sim_heat_phase) = 0;
-                  heat_ph = 0;
-                  ESP_LOGW("SIM", "Consigne atteinte (%.1f°C). Le SPA passe en Veille.", temp);
-              } else if (now - last_heat_tick > 60000) {
-                  // Hausse de 0.5°C toutes les minutes
-                  temp += 0.5f;
-                  id(sim_temp) = temp;
-                  id(sim_temp_num).publish_state(temp); // Synchronisation IHM
-                  last_heat_tick = now;
-                  ESP_LOGI("SIM", "Hausse Temp: %.1f°C", temp);
-              }
-              last_cool_tick = now;
-          } else {
-              last_heat_tick = now;
-              // Refroidissement naturel
-              if (now - last_cool_tick > 180000) { // Baisse de 0.5°C toutes les 3 minutes
-                  temp -= 0.5f;
-                  id(sim_temp) = temp;
-                  id(sim_temp_num).publish_state(temp); // Synchronisation IHM
-                  last_cool_tick = now;
-                  ESP_LOGI("SIM", "Baisse Temp: %.1f°C", temp);
-                  
-                  // Hystérésis : Redémarrage automatique
-                  if (temp <= (setpoint - 2.0f)) {
-                      id(sim_heat_phase) = 1;
-                      heat_ph = 1;
-                      ESP_LOGW("SIM", "Hystérésis atteinte (%.1f°C). Reprise automatique de la chauffe.", temp);
-                  }
-              }
-          }
 
           if (alert) {
             if (blink_alert) f1A |= 0x01;
@@ -81,10 +43,10 @@ class MspaSimTask : public Component {
                 // Filtration ou UVC pur (sans chauffe) : Historiquement stable
                 f1A |= 0x01; // Pump
                 if (uvc_ph > 0) f1A |= 0x04; // UVC
-                id(sim_relay) = 0x01; // Relais pompe ON, relais chauffage OFF (correction du simulateur !)
+                id(sim_relay) = 0x03; // Relais physiques ON
             } else {
                 // Veille / Polling : Aucun bouton actif. La carte mère s'auto-vérifie.
-                // Clignotement erratique natif (1s ON / 8s OFF)
+                // Clignotement erratique natif (on simule : 1s ON / 8s OFF)
                 if (is_polling_blink) {
                     f1A |= 0x01; // Pump
                     // On ne simule pas de chauffe ni d'UVC pendant le polling
@@ -130,7 +92,7 @@ class MspaSimTask : public Component {
           id(sw_icon_filt).publish_state(ui_filt);
           id(sw_icon_heat).publish_state(ui_heat);
           id(sw_icon_uvc).publish_state(ui_uvc);
-          id(sw_rel_pump).publish_state((id(sim_relay) & 0x01) != 0);
+          id(sw_rel_pump).publish_state(id(sim_relay) == 0x03);
 
           vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz
         }

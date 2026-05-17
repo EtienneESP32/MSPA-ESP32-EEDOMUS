@@ -27,9 +27,9 @@ struct EedomusRequest {
   bool is_float;
 };
 
-class MSPAUartComponent : public Component {
+class MSPAUartBridge : public Component {
 public:
-  MSPAUartComponent(uart::UARTComponent *spa, uart::UARTComponent *kbd)
+  MSPAUartBridge(uart::UARTComponent *spa, uart::UARTComponent *kbd)
       : uart_spa_(spa), uart_kbd_(kbd) {}
 
   void set_temp_sensor(sensor::Sensor *s) { temp_sensor_ = s; }
@@ -52,21 +52,35 @@ public:
   }
   void set_http_busy(bool busy) { http_busy_.store(busy); }
   bool is_eedomus_enabled() { return eedomus_enabled_.load(); }
-  void set_eedomus_enabled(bool enabled) { eedomus_enabled_.store(enabled); }
-  void reset_filter_alert() { retry_reset_ = 10; }
-  void control_lock(bool v) {
-    lock_kbd_.store(v);
-    if (lock_switch_)
-      lock_switch_->publish_state(v);
+  void set_eedomus_enabled(bool enabled) { 
+    eedomus_enabled_.store(enabled); 
+    if (enabled) force_sync();
+  }
+  
+  void force_sync() {
+    if (e_id_temp_) enqueue_eedomus(e_id_temp_, real_temp_.load(), true);
+    if (e_id_set_) enqueue_eedomus(e_id_set_, real_setpoint_.load(), true);
+    if (e_id_f_) enqueue_eedomus(e_id_f_, real_f_.load() ? 1 : 0, false);
+    if (e_id_h_) enqueue_eedomus(e_id_h_, real_h_.load() ? 1 : 0, false);
+    if (e_id_u_) enqueue_eedomus(e_id_u_, real_u_.load() ? 1 : 0, false);
+    if (e_id_b_) enqueue_eedomus(e_id_b_, real_b_.load(), false);
+    if (e_id_alert_) enqueue_eedomus(e_id_alert_, last_alert_val_ ? 1 : 0, false);
+    ESP_LOGI(TAG, "Soft Sync: Données courantes ajoutées à la file Eedomus.");
   }
 
-  // --- COUCHE EEDOMUS (Tampon Lisseur 20s - Core 0) ---
-  void set_eedomus_ids(int f, int h, int u) { e_id_f_ = f; e_id_h_ = h; e_id_u_ = u; }
-  int e_id_f_{0}, e_id_h_{0}, e_id_u_{0};
-  uint32_t e_last_off_f_{0}, e_last_off_h_{0}, e_last_off_u_{0};
-  bool e_state_f_{false}, e_state_h_{false}, e_state_u_{false};
+  void reset_filter_alert() { retry_reset_ = 10; }
+  void control_lock(bool v) { 
+    lock_kbd_.store(v); 
+    if (lock_switch_) lock_switch_->publish_state(v);
+  }
 
-  // --- VARIABLES ATOMIQUES (Bible V3) ---
+  // --- IDs EEDOMUS ---
+  int e_id_temp_{0}, e_id_set_{0}, e_id_f_{0}, e_id_h_{0}, e_id_u_{0}, e_id_b_{0}, e_id_alert_{0};
+  void set_eedomus_ids(int temp, int set, int f, int h, int u, int b, int alert) {
+    e_id_temp_ = temp; e_id_set_ = set; e_id_f_ = f; e_id_h_ = h; e_id_u_ = u; e_id_b_ = b; e_id_alert_ = alert;
+  }
+
+  // --- VARIABLES ATOMIQUES (v7.5.26) ---
   std::atomic<bool> target_f_{false}, target_h_{false}, target_u_{false};
   std::atomic<int> target_b_{0};
   std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0},
@@ -79,7 +93,6 @@ public:
   std::atomic<bool> lock_kbd_{false};
   std::atomic<bool> physical_f_on_{false}, physical_h_on_{false};
   std::atomic<bool> is_blinking_f_{false}, is_blinking_h_{false};
-  std::atomic<bool> is_alert_f_{false};
   std::atomic<bool> bus_f_{false}, bus_h_{false}, bus_u_{false};
   std::atomic<int> bus_b_{0};
   std::atomic<uint32_t> last_on_f_{0}, last_on_h_{0}, last_on_u_{0};
@@ -134,24 +147,21 @@ public:
     if (kbd_link_sensor_)
       kbd_link_sensor_->publish_state(now - last_kbd_ms_.load() < 3500);
     if (filter_alert_sensor_) {
-      bool alert = (is_blinking_f_.load() && !physical_f_on_.load());
+      bool alert = (is_blinking_f_ && !physical_f_on_.load());
       if (alert != last_alert_val_) {
         last_alert_val_ = alert;
         filter_alert_sensor_->publish_state(alert);
+        if (e_id_alert_) enqueue_eedomus(e_id_alert_, alert ? 1 : 0, false);
       }
     }
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "Démarrage MSPA Logic GOLD-V4 (Hierarchie Maître-Esclave)");
-    // Reset complet du lisseur Eedomus (anti-OTA-stale-state)
-    e_state_f_ = false; e_state_h_ = false; e_state_u_ = false;
-    e_last_off_f_ = 0;  e_last_off_h_ = 0;  e_last_off_u_ = 0;
-    last_on_f_ = 0;     last_on_h_ = 0;     last_on_u_ = 0;
+    ESP_LOGI(TAG, "MSPA v7.6.0-DR Starting (Passive Recovery Branch)...");
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
-      xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
-                              "mspa_uart_task", 8192, this, 15,
+      xTaskCreatePinnedToCore(MSPAUartBridge::uart_task_static,
+                              "mspa_bridge_task", 8192, this, 15,
                               &uart_task_handle_, 1);
     }
     is_ready_ = true;
@@ -173,56 +183,16 @@ public:
       run_watchdog();
     }
 
-    // --- LISSEUR EEDOMUS ULTRA-RÉACTIF (Sécurité 2s - Thread Safe sur Core 0) ---
-    // Les relais physiques ne clignotent jamais, on peut se brancher directement dessus !
-    bool eedomus_f = physical_f_on_.load();
-    bool eedomus_h = physical_h_on_.load();
-    bool eedomus_u = bus_u_.load(); // UVC : voyant fixe sans clignotement natif
-
-    auto check_eedomus = [&](bool env_state, bool &e_state, uint32_t &last_off, int e_id) {
-        if (!e_id) return;
-        if (env_state) {
-            last_off = 0;
-            if (!e_state) {
-                e_state = true;
-                enqueue_eedomus(e_id, 1.0f, false, true);
-                ESP_LOGI(TAG, "Eedomus Lisseur: Periph %d -> ON", e_id);
-            }
-        } else {
-            if (e_state) {
-                if (last_off == 0) last_off = now;
-                if (now - last_off > 2000) { // 2 secondes de garde réseau seulement !
-                    e_state = false;
-                    enqueue_eedomus(e_id, 0.0f, false, true);
-                    ESP_LOGI(TAG, "Eedomus Lisseur: Periph %d -> OFF (2s silence)", e_id);
-                }
-            } else {
-                last_off = 0;
-            }
-        }
-    };
-    check_eedomus(eedomus_f, e_state_f_, e_last_off_f_, e_id_f_);
-    check_eedomus(eedomus_h, e_state_h_, e_last_off_h_, e_id_h_);
-    check_eedomus(eedomus_u, e_state_u_, e_last_off_u_, e_id_u_);
-
-    static uint32_t last_debug = 0;
-    if (now - last_debug > 5000) {
-        ESP_LOGD(TAG, "Lisseur Debug: e_id_f=%d e_state_f=%d bus_f=%d e_id_h=%d e_state_h=%d bus_h=%d",
-                 e_id_f_, e_state_f_, bus_f_.load(), e_id_h_, e_state_h_, bus_h_.load());
-        last_debug = now;
-    }
-
     // Eedomus Dispatcher (Core 0 - Stratégie Priorisée FIFO)
     if (eedomus_enabled_.load() && !http_busy_.load() &&
-        (now - last_http_ms_ > 200)) {
-
+        (now - last_http_ms_ > 5000)) {
+      
       // --- SOCKET GUARD ---
       uint32_t free_heap = esp_get_free_heap_size();
       if (free_heap < 60000) {
         static uint32_t last_heap_warn = 0;
         if (now - last_heap_warn > 60000) {
-          ESP_LOGW(TAG, "Socket Guard: Heap critique (%u), suspension du push",
-                   free_heap);
+          ESP_LOGW(TAG, "Socket Guard: Heap critique (%u), suspension du push", free_heap);
           last_heap_warn = now;
         }
       } else {
@@ -251,32 +221,15 @@ public:
     }
   }
 
-  // --- ACTIONS MAITRES (Reset Logic & Hierarchie) ---
+  // --- ACTIONS MAITRES (Reset Logic) ---
   void control_filtration(bool state) {
     target_f_ = state;
     retry_f_ = 10;
     is_blinking_f_ = false;
     last_f_change_ms_ = millis() - 2000;
     last_f_cmd_ms_ = millis();
-    if (!state) {
-      last_on_f_ = 0; // Destruction instantanée de l'enveloppe
-      
-      // REGLE 1 : L'extinction de la pompe coupe TOUT par sécurité (Chauffage & UVC)
-      if (target_h_.load()) {
-        target_h_ = false;
-        retry_h_ = 0; // Le SPA l'éteint physiquement, pas besoin du Sniper
-        last_on_h_ = 0;
-        if (h_switch_) h_switch_->publish_state(false);
-      }
-      if (target_u_.load()) {
-        target_u_ = false;
-        retry_u_ = 0;
-        last_on_u_ = 0;
-        if (u_switch_) u_switch_->publish_state(false);
-      }
-    }
-    if (f_switch_)
-      f_switch_->publish_state(state); // Optimistic UI
+    if (!state) last_on_f_ = 0; // Destruction instantanée de l'enveloppe 15s
+    if (f_switch_) f_switch_->publish_state(state); // Optimistic UI
   }
   void control_heating(bool state) {
     target_h_ = state;
@@ -284,38 +237,16 @@ public:
     is_blinking_h_ = false;
     last_h_change_ms_ = millis() - 2000;
     last_h_cmd_ms_ = millis();
-    if (!state) {
-      last_on_h_ = 0; // Destruction instantanée de l'enveloppe
-    } else {
-      // REGLE 2 : Allumer le Chauffage force la pompe (Filtration) à ON
-      if (!target_f_.load()) {
-        target_f_ = true;
-        retry_f_ = 0; // Le SPA l'allume tout seul
-        last_on_f_ = millis();
-        if (f_switch_) f_switch_->publish_state(true);
-      }
-    }
-    if (h_switch_)
-      h_switch_->publish_state(state); // Optimistic UI
+    if (!state) last_on_h_ = 0; // Destruction instantanée de l'enveloppe 15s
+    if (h_switch_) h_switch_->publish_state(state); // Optimistic UI
   }
   void control_uvc(bool state) {
     target_u_ = state;
     retry_u_ = 10;
     last_u_change_ms_ = millis() - 2000;
     last_u_cmd_ms_ = millis();
-    if (!state) {
-      last_on_u_ = 0; // Destruction instantanée de l'enveloppe
-    } else {
-      // REGLE 2 : Allumer l'UVC force la pompe (Filtration) à ON
-      if (!target_f_.load()) {
-        target_f_ = true;
-        retry_f_ = 0; // Le SPA l'allume tout seul
-        last_on_f_ = millis();
-        if (f_switch_) f_switch_->publish_state(true);
-      }
-    }
-    if (u_switch_)
-      u_switch_->publish_state(state); // Optimistic UI
+    if (!state) last_on_u_ = 0; // Destruction instantanée de l'enveloppe 15s
+    if (u_switch_) u_switch_->publish_state(state); // Optimistic UI
   }
   void control_bubbles(int level) {
     target_b_ = level;
@@ -323,10 +254,9 @@ public:
     last_b_change_ms_ = millis() - 2000;
     last_b_cmd_ms_ = millis();
     if (b_select_) {
-      b_select_->publish_state((level == 1)   ? "Niveau1"
-                               : (level == 2) ? "Niveau2"
-                               : (level == 3) ? "Niveau3"
-                                              : "Arret");
+        b_select_->publish_state((level == 1) ? "Niveau1" : 
+                                 (level == 2) ? "Niveau2" : 
+                                 (level == 3) ? "Niveau3" : "Arret");
     }
   }
 
@@ -356,13 +286,13 @@ protected:
   uint8_t spa_buf_[10], spa_idx_{0};
   bool last_alert_val_{false};
 
-  // Ghosting State pour Alerte Filtre
+  // Ghosting State
   bool lp_f_{false}, lp_h_{false};
   uint32_t lc_f_{0}, lc_h_{0};
 
   static void uart_task_static(void *pvParameters) {
-    MSPAUartComponent *component =
-        static_cast<MSPAUartComponent *>(pvParameters);
+    MSPAUartBridge *component =
+        static_cast<MSPAUartBridge *>(pvParameters);
     while (true) {
       component->uart_task();
       vTaskDelay(pdMS_TO_TICKS(1));
@@ -370,40 +300,30 @@ protected:
   }
 
   void uart_task() {
-    int quota = 64;
-    while (uart_spa_->available() && quota-- > 0) {
-      uint8_t c;
-      if (uart_spa_->read_byte(&c)) {
-        // --- RELAIS SANS MUTEX (Priorité Absolue) ---
-        uart_kbd_->write_byte(c);
-        process_machine(c, true);
+    // --- MODE DISASTER RECOVERY: SHUNT LOGIQUE ---
+    // Aucun buffer, aucune interception. Relais immédiat octet par octet.
+    
+    while (true) {
+      // Sens 1: SPA -> CLAVIER
+      while (uart_spa_->available()) {
+        uint8_t c;
+        if (uart_spa_->read_byte(&c)) {
+          uart_kbd_->write_byte(c); // RELAIS PHYSIQUE IMMÉDIAT
+          process_machine(c, true);  // ANALYSE PASSIVE GOLD
+        }
       }
-    }
-    quota = 64;
-    while (uart_kbd_->available() && quota-- > 0) {
-      uint8_t c;
-      if (uart_kbd_->read_byte(&c))
-        process_machine(c, false);
-    }
 
-    // Sniper (Lock minimal uniquement sur l'écriture vers SPA)
-    if (is_sync_.load()) {
-      if (retry_f_.load() > 0) {
-        if (inject_cmd(0x01, target_f_.load() ? 0x01 : 0x00))
-          retry_f_--;
-      } else if (retry_h_.load() > 0) {
-        if (inject_cmd(0x01, target_h_.load() ? 0x01 : 0x00))
-          retry_h_--;
-      } else if (retry_u_.load() > 0) {
-        if (inject_cmd(0x01, target_u_.load() ? 0x01 : 0x00))
-          retry_u_--;
-      } else if (retry_b_.load() > 0) {
-        if (inject_cmd(0x03, (uint8_t)target_b_.load()))
-          retry_b_--;
+      // Sens 2: CLAVIER -> SPA
+      while (uart_kbd_->available()) {
+        uint8_t c;
+        if (uart_kbd_->read_byte(&c)) {
+          uart_spa_->write_byte(c); // RELAY PHYSIQUE IMMÉDIAT
+          process_machine(c, false); // ANALYSE PASSIVE GOLD
+        }
       }
-    }
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
   }
 
   void process_machine(uint8_t c, bool from_spa) {
@@ -413,8 +333,10 @@ protected:
 
     if (*idx_ptr > 0) {
       uint32_t last = from_spa ? last_spa_ms_.load() : last_kbd_ms_.load();
-      if (now - last > 100)
+      if (now - last > 100) {
+        ESP_LOGW(TAG, "DIAG: UART Timeout Drop ! Gap=%d ms (from_spa=%d)", (int)(now - last), from_spa);
         *idx_ptr = 0;
+      }
     }
 
     if (from_spa)
@@ -445,15 +367,9 @@ protected:
           valid = (buf[len - 1] == cs);
         }
         if (valid) {
-          if (!from_spa && (!lock_kbd_.load() || buf[1] == 0x0D)) {
-            // Relais Clavier -> SPA (Mutex nécessaire pour ne pas entrer en
-            // collision avec Sniper)
-            if (xSemaphoreTakeRecursive(uart_mutex_, pdMS_TO_TICKS(10))) {
-              uart_spa_->write_array(buf, len);
-              xSemaphoreGiveRecursive(uart_mutex_);
-            }
-          }
           handle_frame(buf[1], buf[2], (len == 5 ? buf[3] : 0), from_spa);
+        } else {
+          ESP_LOGW(TAG, "BRIDGE: Invalid %s Frame Checksum! ID=%02X", from_spa ? "SPA" : "KBD", buf[1]);
         }
         *idx_ptr = 0;
       }
@@ -469,10 +385,7 @@ protected:
       target_h_ = real_h_.load();
       target_u_ = real_u_.load();
       target_b_ = (int)real_b_.load();
-      retry_f_ = 0;
-      retry_h_ = 0;
-      retry_u_ = 0;
-      retry_b_ = 0;
+      retry_f_ = 0; retry_h_ = 0; retry_u_ = 0; retry_b_ = 0;
       return;
     }
 
@@ -483,44 +396,59 @@ protected:
     if (id == 0x1A) {
       bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
 
-      // Détection du clignotement rapide (Nécessaire pour l'Alerte Filtre)
-      auto detect_ghost = [&](bool current, bool &last_state,
-                              uint32_t &last_change,
-                              std::atomic<bool> &is_ghost) {
-        if (current != last_state) {
-          uint32_t dt = now - last_change;
-          if (dt > 50 && dt < 800)   // 800ms : alerte filtre=500ms OK, polling=1000ms ignore
-            is_ghost = true;
-          last_change = now;
-          last_state = current;
-        }
-        if (now - last_change > 3500)
-          is_ghost = false;
-      };
-      // Seuil 800ms : capture alerte filtre (500ms) mais ignore polling (1000ms) et chauffe (2000ms)
-      detect_ghost(pf, lp_f_, lc_f_, is_blinking_f_);
-      detect_ghost(ph, lp_h_, lc_h_, is_blinking_h_);
+      // --- DETECTION ALERTE FILTRE (PULSE RAPIDE 0.5s) ---
+      static uint32_t last_pf_pulse = 0;
+      static bool last_pf = false;
+      if (pf && !last_pf && !physical_f_on_.load()) {
+         if (now - last_pf_pulse < 2000 && last_pf_pulse != 0) {
+            is_blinking_f_ = true;
+         }
+         last_pf_pulse = now;
+      }
+      last_pf = pf;
+      if (now - last_pf_pulse > 3000 || physical_f_on_.load()) {
+         is_blinking_f_ = false;
+      }
 
-      // PHASE 3 (BIBLE V3) : MIROIR BRUT 100% TRANSPARENT
-      // L'IHM Web lit la réalité brute (clignotements natifs).
-      bool final_f = pf;
-      bool final_h = ph;
-      bool final_u = pu;
+      // PHASE 3: DÉBARRAS DU POLLING (Debouncer 1500ms) & ENVELOPPE 15s
+      static uint32_t f_stable_on_ms = 0;
+      static uint32_t h_stable_on_ms = 0;
+      static uint32_t u_stable_on_ms = 0;
 
-      // Mise à jour de l'UI (miroir brut 100% transparent sans filtre anti-spam)
-      update_ui_switch(now, final_f, real_f_, last_f_change_ms_, f_switch_, true);
-      update_ui_switch(now, final_h, real_h_, last_h_change_ms_, h_switch_, true);
-      update_ui_switch(now, final_u, real_u_, last_u_change_ms_, u_switch_, true);
+      if (pf && physical_f_on_.load()) {
+        if (f_stable_on_ms == 0) f_stable_on_ms = now;
+        if (now - f_stable_on_ms > 1500) last_on_f_ = now;
+      } else {
+        f_stable_on_ms = 0;
+      }
 
-      // Sniper : bus_f_/h_/u_ = bit BRUT (feedback rapide pour le Sniper)
-      bus_f_ = pf;
-      bus_h_ = ph;
-      bus_u_ = pu;
-      // Lisseur Eedomus : last_on_* conditionne a la presence du relais physique (frame 0x08)
-      // Evite que le polling natif (relay=OFF, bit=ON 1s/8s) bloque le compteur OFF de 20s
-      if (pf && physical_f_on_.load()) last_on_f_ = now;
-      if (ph && physical_h_on_.load()) last_on_h_ = now;
-      if (pu) last_on_u_ = now;  // UVC : pas de relay frame dedie, on garde le bit brut
+      if (ph) {
+        if (h_stable_on_ms == 0) h_stable_on_ms = now;
+        if (now - h_stable_on_ms > 1500) last_on_h_ = now;
+      } else {
+        h_stable_on_ms = 0;
+      }
+
+      if (pu) {
+        if (u_stable_on_ms == 0) u_stable_on_ms = now;
+        if (now - u_stable_on_ms > 1500) last_on_u_ = now;
+      } else {
+        u_stable_on_ms = 0;
+      }
+
+      bool final_f = (now - last_on_f_.load() < 15000);
+      bool final_h = (now - last_on_h_.load() < 15000);
+      bool final_u = (now - last_on_u_.load() < 15000);
+
+      // Mise à jour de l'UI (L'enveloppe lisse tous les clignotements natifs)
+      update_ui_switch(now, final_f, real_f_, last_f_change_ms_, f_switch_, false, e_id_f_);
+      update_ui_switch(now, final_h, real_h_, last_h_change_ms_, h_switch_, false, e_id_h_);
+      update_ui_switch(now, final_u, real_u_, last_u_change_ms_, u_switch_, false, e_id_u_);
+
+      bus_f_ = final_f;
+      bus_h_ = final_h;
+      bus_u_ = final_u;
+
     }
     if (id == 0x1B) {
       int pb = d1;
@@ -533,6 +461,7 @@ protected:
                                      : (pb == 2) ? "Niveau2"
                                      : (pb == 3) ? "Niveau3"
                                                  : "Arret");
+          if (e_id_b_) enqueue_eedomus(e_id_b_, pb, false);
         }
       } else
         last_b_change_ms_ = now;
@@ -543,9 +472,13 @@ protected:
           ESP_LOGI(TAG, "Sync: Setpoint -> %.1f", ps);
           if (setpoint_sensor_)
             setpoint_sensor_->publish_state(ps);
+          if (e_id_set_) enqueue_eedomus(e_id_set_, ps, true);
         }
       } else
         last_set_change_ms_ = now;
+    }
+    if (id == 0x00) {
+      ESP_LOGE(TAG, "!!! SPA ERROR DETECTED: E%02d !!!", d1);
     }
     if (id == 0x06) {
       float nt = d1 / 2.0f;
@@ -554,6 +487,7 @@ protected:
         ESP_LOGI(TAG, "Sync: Water Temp -> %.1f", nt);
         if (temp_sensor_)
           temp_sensor_->publish_state(nt);
+        if (e_id_temp_) enqueue_eedomus(e_id_temp_, nt, true);
       }
     }
     if (id == 0x06 || id == 0x1B || id == 0x1A) {
@@ -571,65 +505,52 @@ protected:
 
       // --- PHASE 4: ARBITRAGE DIAMOND (10s timeout avant Revert) ---
       uint32_t now = millis();
-
+      
+      // --- WATCHDOG DE REALITE (DIAMOND ARBITRAGE) ---
+      // Tolérance augmentée à 20s pour laisser le Filtre Macro (15s) s'éteindre
       // Filtration Revert
-      if (retry_f_.load() == 0 && last_f_cmd_ms_.load() > 0 &&
-          (now - last_f_cmd_ms_.load() > 20000) &&
-          (now - last_f_cmd_ms_.load() < 60000)) {
-        if (target_f_.load() != bus_f_.load()) {
-          ESP_LOGW(TAG, "Diamond: Commande Filtration échouée. Revert.");
-          target_f_ = bus_f_.load();
-          if (f_switch_)
-            f_switch_->publish_state(target_f_.load());
-          last_f_cmd_ms_ = 0;
-        }
+      if (retry_f_.load() == 0 && last_f_cmd_ms_.load() > 0 && (now - last_f_cmd_ms_.load() > 20000) && (now - last_f_cmd_ms_.load() < 60000)) {
+          if (target_f_.load() != bus_f_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande Filtration échouée. Revert.");
+              target_f_ = bus_f_.load();
+              if (f_switch_) f_switch_->publish_state(target_f_.load());
+              last_f_cmd_ms_ = 0;
+          }
       }
       // Chauffage Revert
-      if (retry_h_.load() == 0 && last_h_cmd_ms_.load() > 0 &&
-          (now - last_h_cmd_ms_.load() > 20000) &&
-          (now - last_h_cmd_ms_.load() < 60000)) {
-        if (target_h_.load() != bus_h_.load()) {
-          ESP_LOGW(TAG, "Diamond: Commande Chauffage échouée. Revert.");
-          target_h_ = bus_h_.load();
-          if (h_switch_)
-            h_switch_->publish_state(target_h_.load());
-          last_h_cmd_ms_ = 0;
-        }
+      if (retry_h_.load() == 0 && last_h_cmd_ms_.load() > 0 && (now - last_h_cmd_ms_.load() > 20000) && (now - last_h_cmd_ms_.load() < 60000)) {
+          if (target_h_.load() != bus_h_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande Chauffage échouée. Revert.");
+              target_h_ = bus_h_.load();
+              if (h_switch_) h_switch_->publish_state(target_h_.load());
+              last_h_cmd_ms_ = 0;
+          }
       }
       // UVC Revert
-      if (retry_u_.load() == 0 && last_u_cmd_ms_.load() > 0 &&
-          (now - last_u_cmd_ms_.load() > 20000) &&
-          (now - last_u_cmd_ms_.load() < 60000)) {
-        if (target_u_.load() != bus_u_.load()) {
-          ESP_LOGW(TAG, "Diamond: Commande UVC échouée. Revert.");
-          target_u_ = bus_u_.load();
-          if (u_switch_)
-            u_switch_->publish_state(target_u_.load());
-          last_u_cmd_ms_ = 0;
-        }
+      if (retry_u_.load() == 0 && last_u_cmd_ms_.load() > 0 && (now - last_u_cmd_ms_.load() > 20000) && (now - last_u_cmd_ms_.load() < 60000)) {
+          if (target_u_.load() != bus_u_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande UVC échouée. Revert.");
+              target_u_ = bus_u_.load();
+              if (u_switch_) u_switch_->publish_state(target_u_.load());
+              last_u_cmd_ms_ = 0;
+          }
       }
       // Bulles Revert
-      if (retry_b_.load() == 0 && last_b_cmd_ms_.load() > 0 &&
-          (now - last_b_cmd_ms_.load() > 20000) &&
-          (now - last_b_cmd_ms_.load() < 60000)) {
-        if (target_b_.load() != bus_b_.load()) {
-          ESP_LOGW(TAG, "Diamond: Commande Bulles échouée. Revert.");
-          target_b_ = bus_b_.load();
-          int pb = bus_b_.load();
-          if (b_select_)
-            b_select_->publish_state((pb == 1)   ? "Niveau1"
-                                     : (pb == 2) ? "Niveau2"
-                                     : (pb == 3) ? "Niveau3"
-                                                 : "Arret");
-          last_b_cmd_ms_ = 0;
-        }
+      if (retry_b_.load() == 0 && last_b_cmd_ms_.load() > 0 && (now - last_b_cmd_ms_.load() > 10000) && (now - last_b_cmd_ms_.load() < 60000)) {
+          if (target_b_.load() != bus_b_.load()) {
+              ESP_LOGW(TAG, "Diamond: Commande Bulles échouée. Revert.");
+              target_b_ = bus_b_.load();
+              int pb = bus_b_.load();
+              if (b_select_) b_select_->publish_state((pb==1)?"Niveau1":(pb==2)?"Niveau2":(pb==3)?"Niveau3":"Arret");
+              last_b_cmd_ms_ = 0;
+          }
       }
     }
   }
 
   void update_ui_switch(uint32_t now, bool current, std::atomic<bool> &real,
                         uint32_t &last_change, switch_::Switch *sw,
-                        bool force) {
+                        bool force, int e_id) {
     if (current != real.load()) {
       if (now - last_change > 1500 || force) {
         real = current;
@@ -639,6 +560,7 @@ protected:
                  force ? "GHOST" : "ENV");
         if (sw)
           sw->publish_state(current);
+        if (e_id) enqueue_eedomus(e_id, current ? 1 : 0, false);
       }
     } else
       last_change = now;

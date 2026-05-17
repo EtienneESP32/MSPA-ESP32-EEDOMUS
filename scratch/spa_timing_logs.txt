@@ -1,0 +1,10 @@
+[00:46:37][I][app:100]: ESPHome version 2024.12.2 compiled on May 15 2026, 15:14:39
+[00:47:19][I][mspa_uart:528][mspa_uart_task]: UI: Filtration -> ON (Filter: ENV)
+[00:47:19][I][mspa_uart:528][mspa_uart_task]: UI: Chauffage -> ON (Filter: ENV)
+[00:47:21][I][mspa_uart:528][mspa_uart_task]: UI: UVC -> OFF (Filter: ENV)
+[00:47:23][I][mspa_uart:528][mspa_uart_task]: UI: UVC -> ON (Filter: ENV)
+[00:47:25][I][mspa_uart:528][mspa_uart_task]: UI: Filtration -> OFF (Filter: ENV)
+[00:47:25][I][mspa_uart:528][mspa_uart_task]: UI: Chauffage -> OFF (Filter: ENV)
+[00:47:32][I][mspa_uart:528][mspa_uart_task]: UI: Filtration -> ON (Filter: ENV)
+[00:47:32][I][mspa_uart:528][mspa_uart_task]: UI: Chauffage -> ON (Filter: ENV)
+[00:47:34][I][mspa_uart:528][mspa_uart_task]: UI: UVC -> OFF (Filter: ENV)

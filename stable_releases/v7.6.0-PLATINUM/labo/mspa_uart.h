@@ -60,13 +60,7 @@ public:
       lock_switch_->publish_state(v);
   }
 
-  // --- COUCHE EEDOMUS (Tampon Lisseur 20s - Core 0) ---
-  void set_eedomus_ids(int f, int h, int u) { e_id_f_ = f; e_id_h_ = h; e_id_u_ = u; }
-  int e_id_f_{0}, e_id_h_{0}, e_id_u_{0};
-  uint32_t e_last_off_f_{0}, e_last_off_h_{0}, e_last_off_u_{0};
-  bool e_state_f_{false}, e_state_h_{false}, e_state_u_{false};
-
-  // --- VARIABLES ATOMIQUES (Bible V3) ---
+  // --- VARIABLES ATOMIQUES (v7.5.26) ---
   std::atomic<bool> target_f_{false}, target_h_{false}, target_u_{false};
   std::atomic<int> target_b_{0};
   std::atomic<uint8_t> retry_f_{0}, retry_h_{0}, retry_u_{0}, retry_b_{0},
@@ -134,7 +128,7 @@ public:
     if (kbd_link_sensor_)
       kbd_link_sensor_->publish_state(now - last_kbd_ms_.load() < 3500);
     if (filter_alert_sensor_) {
-      bool alert = (is_blinking_f_.load() && !physical_f_on_.load());
+      bool alert = (is_alert_f_.load() && !physical_f_on_.load());
       if (alert != last_alert_val_) {
         last_alert_val_ = alert;
         filter_alert_sensor_->publish_state(alert);
@@ -144,10 +138,6 @@ public:
 
   void setup() override {
     ESP_LOGI(TAG, "Démarrage MSPA Logic GOLD-V4 (Hierarchie Maître-Esclave)");
-    // Reset complet du lisseur Eedomus (anti-OTA-stale-state)
-    e_state_f_ = false; e_state_h_ = false; e_state_u_ = false;
-    e_last_off_f_ = 0;  e_last_off_h_ = 0;  e_last_off_u_ = 0;
-    last_on_f_ = 0;     last_on_h_ = 0;     last_on_u_ = 0;
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -173,48 +163,9 @@ public:
       run_watchdog();
     }
 
-    // --- LISSEUR EEDOMUS ULTRA-RÉACTIF (Sécurité 2s - Thread Safe sur Core 0) ---
-    // Les relais physiques ne clignotent jamais, on peut se brancher directement dessus !
-    bool eedomus_f = physical_f_on_.load();
-    bool eedomus_h = physical_h_on_.load();
-    bool eedomus_u = bus_u_.load(); // UVC : voyant fixe sans clignotement natif
-
-    auto check_eedomus = [&](bool env_state, bool &e_state, uint32_t &last_off, int e_id) {
-        if (!e_id) return;
-        if (env_state) {
-            last_off = 0;
-            if (!e_state) {
-                e_state = true;
-                enqueue_eedomus(e_id, 1.0f, false, true);
-                ESP_LOGI(TAG, "Eedomus Lisseur: Periph %d -> ON", e_id);
-            }
-        } else {
-            if (e_state) {
-                if (last_off == 0) last_off = now;
-                if (now - last_off > 2000) { // 2 secondes de garde réseau seulement !
-                    e_state = false;
-                    enqueue_eedomus(e_id, 0.0f, false, true);
-                    ESP_LOGI(TAG, "Eedomus Lisseur: Periph %d -> OFF (2s silence)", e_id);
-                }
-            } else {
-                last_off = 0;
-            }
-        }
-    };
-    check_eedomus(eedomus_f, e_state_f_, e_last_off_f_, e_id_f_);
-    check_eedomus(eedomus_h, e_state_h_, e_last_off_h_, e_id_h_);
-    check_eedomus(eedomus_u, e_state_u_, e_last_off_u_, e_id_u_);
-
-    static uint32_t last_debug = 0;
-    if (now - last_debug > 5000) {
-        ESP_LOGD(TAG, "Lisseur Debug: e_id_f=%d e_state_f=%d bus_f=%d e_id_h=%d e_state_h=%d bus_h=%d",
-                 e_id_f_, e_state_f_, bus_f_.load(), e_id_h_, e_state_h_, bus_h_.load());
-        last_debug = now;
-    }
-
     // Eedomus Dispatcher (Core 0 - Stratégie Priorisée FIFO)
     if (eedomus_enabled_.load() && !http_busy_.load() &&
-        (now - last_http_ms_ > 200)) {
+        (now - last_http_ms_ > 5000)) {
 
       // --- SOCKET GUARD ---
       uint32_t free_heap = esp_get_free_heap_size();
@@ -356,7 +307,7 @@ protected:
   uint8_t spa_buf_[10], spa_idx_{0};
   bool last_alert_val_{false};
 
-  // Ghosting State pour Alerte Filtre
+  // Ghosting State
   bool lp_f_{false}, lp_h_{false};
   uint32_t lc_f_{0}, lc_h_{0};
 
@@ -483,44 +434,44 @@ protected:
     if (id == 0x1A) {
       bool pf = (d1 & 0x01), ph = (d1 & 0x02), pu = (d1 & 0x04);
 
-      // Détection du clignotement rapide (Nécessaire pour l'Alerte Filtre)
-      auto detect_ghost = [&](bool current, bool &last_state,
-                              uint32_t &last_change,
-                              std::atomic<bool> &is_ghost) {
-        if (current != last_state) {
-          uint32_t dt = now - last_change;
-          if (dt > 50 && dt < 800)   // 800ms : alerte filtre=500ms OK, polling=1000ms ignore
-            is_ghost = true;
-          last_change = now;
-          last_state = current;
-        }
-        if (now - last_change > 3500)
-          is_ghost = false;
-      };
-      // Seuil 800ms : capture alerte filtre (500ms) mais ignore polling (1000ms) et chauffe (2000ms)
-      detect_ghost(pf, lp_f_, lc_f_, is_blinking_f_);
-      detect_ghost(ph, lp_h_, lc_h_, is_blinking_h_);
+      // PHASE 3: DÉBARRAS DU POLLING (Debouncer 1500ms) & ENVELOPPE
+      static uint32_t f_stable_on_ms = 0;
+      static uint32_t h_stable_on_ms = 0;
+      static uint32_t u_stable_on_ms = 0;
 
-      // PHASE 3 (BIBLE V3) : MIROIR BRUT 100% TRANSPARENT
-      // L'IHM Web lit la réalité brute (clignotements natifs).
-      bool final_f = pf;
-      bool final_h = ph;
-      bool final_u = pu;
+      if (pf && physical_f_on_.load()) {
+        if (f_stable_on_ms == 0) f_stable_on_ms = now;
+        if (now - f_stable_on_ms > 1500) last_on_f_ = now;
+      } else {
+        f_stable_on_ms = 0;
+      }
 
-      // Mise à jour de l'UI (miroir brut 100% transparent sans filtre anti-spam)
-      update_ui_switch(now, final_f, real_f_, last_f_change_ms_, f_switch_, true);
-      update_ui_switch(now, final_h, real_h_, last_h_change_ms_, h_switch_, true);
-      update_ui_switch(now, final_u, real_u_, last_u_change_ms_, u_switch_, true);
+      if (ph) {
+        if (h_stable_on_ms == 0) h_stable_on_ms = now;
+        if (now - h_stable_on_ms > 1500) last_on_h_ = now;
+      } else {
+        h_stable_on_ms = 0;
+      }
 
-      // Sniper : bus_f_/h_/u_ = bit BRUT (feedback rapide pour le Sniper)
-      bus_f_ = pf;
-      bus_h_ = ph;
-      bus_u_ = pu;
-      // Lisseur Eedomus : last_on_* conditionne a la presence du relais physique (frame 0x08)
-      // Evite que le polling natif (relay=OFF, bit=ON 1s/8s) bloque le compteur OFF de 20s
-      if (pf && physical_f_on_.load()) last_on_f_ = now;
-      if (ph && physical_h_on_.load()) last_on_h_ = now;
-      if (pu) last_on_u_ = now;  // UVC : pas de relay frame dedie, on garde le bit brut
+      if (pu) {
+        if (u_stable_on_ms == 0) u_stable_on_ms = now;
+        if (now - u_stable_on_ms > 1500) last_on_u_ = now;
+      } else {
+        u_stable_on_ms = 0;
+      }
+
+      bool final_f = (now - last_on_f_.load() < 15000);
+      bool final_h = (now - last_on_h_.load() < 15000);
+      bool final_u = (now - last_on_u_.load() < 15000);
+
+      // Mise à jour de l'UI
+      update_ui_switch(now, final_f, real_f_, last_f_change_ms_, f_switch_, false);
+      update_ui_switch(now, final_h, real_h_, last_h_change_ms_, h_switch_, false);
+      update_ui_switch(now, final_u, real_u_, last_u_change_ms_, u_switch_, false);
+
+      bus_f_ = final_f;
+      bus_h_ = final_h;
+      bus_u_ = env_u;
     }
     if (id == 0x1B) {
       int pb = d1;

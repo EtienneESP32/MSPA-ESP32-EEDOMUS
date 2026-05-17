@@ -1,0 +1,177 @@
+[03:53:01][I][app:100]: ESPHome version 2024.12.2 compiled on May 17 2026, 03:52:23
+[03:53:01][C][logger:185]: Logger:
+[03:53:01][C][logger:186]:   Level: DEBUG
+[03:53:01][C][logger:188]:   Log Baud Rate: 0
+[03:53:01][C][logger:189]:   Hardware UART: UART0
+[03:53:01][C][logger:193]:   Level for 'mspa_uart': DEBUG
+[03:53:01][C][logger:193]:   Level for 'http_request': INFO
+[03:53:01][C][logger:193]:   Level for 'api': WARN
+[03:53:01][C][logger:193]:   Level for 'wifi': WARN
+[03:53:01][C][logger:193]:   Level for 'main': INFO
+[03:53:01][C][logger:193]:   Level for 'text_sensor': INFO
+[03:53:01][C][logger:193]:   Level for 'binary_sensor': INFO
+[03:53:01][C][uart.arduino_esp32:151]: UART Bus 0:
+[03:53:01][C][uart.arduino_esp32:152]:   TX Pin: GPIO17
+[03:53:01][C][uart.arduino_esp32:153]:   RX Pin: GPIO16
+[03:53:01][C][uart.arduino_esp32:155]:   RX Buffer Size: 1024
+[03:53:01][C][uart.arduino_esp32:157]:   Baud Rate: 9600 baud
+[03:53:01][C][uart.arduino_esp32:158]:   Data Bits: 8
+[03:53:01][C][uart.arduino_esp32:159]:   Parity: NONE
+[03:53:01][C][uart.arduino_esp32:160]:   Stop bits: 1
+[03:53:01][C][uart.arduino_esp32:151]: UART Bus 1:
+[03:53:01][C][uart.arduino_esp32:152]:   TX Pin: GPIO13
+[03:53:01][C][uart.arduino_esp32:153]:   RX Pin: GPIO14
+[03:53:01][C][uart.arduino_esp32:155]:   RX Buffer Size: 1024
+[03:53:01][C][uart.arduino_esp32:157]:   Baud Rate: 9600 baud
+[03:53:01][C][uart.arduino_esp32:158]:   Data Bits: 8
+[03:53:01][C][uart.arduino_esp32:159]:   Parity: NONE
+[03:53:01][C][uart.arduino_esp32:160]:   Stop bits: 1
+[03:53:01][C][template.binary_sensor:028]: Template Binary Sensor 'Lien Moteur'
+[03:53:01][C][template.binary_sensor:028]:   Device Class: 'connectivity'
+[03:53:01][C][template.binary_sensor:028]: Template Binary Sensor 'Lien Clavier'
+[03:53:01][C][template.binary_sensor:028]:   Device Class: 'connectivity'
+[03:53:01][C][template.text_sensor:020]: Template Sensor 'Uptime'
+[03:53:01][C][template.text_sensor:020]:   Icon: 'mdi:timer-outline'
+[03:53:01][C][template.text_sensor:020]: Template Sensor 'Demarre le'
+[03:53:01][C][template.text_sensor:020]:   Icon: 'mdi:calendar-clock'
+[03:53:01][C][template.select:065]: Template Select 'Mode Bulles'
+[03:53:01][C][template.select:065]:   Icon: 'mdi:chart-bubble'
+[03:53:01][C][template.select:066]:   Update Interval: 60.0s
+[03:53:01][C][template.select:069]:   Optimistic: NO
+[03:53:01][C][template.select:070]:   Initial Option: Arret
+[03:53:01][C][template.select:071]:   Restore Value: NO
+[03:53:01][C][template.number:050]: Template Number 'Temperature Consigne'
+[03:53:01][C][template.number:050]:   Icon: 'mdi:thermometer'
+[03:53:01][C][template.number:050]:   Unit of Measurement: '°C'
+[03:53:01][C][template.number:051]:   Optimistic: NO
+[03:53:01][C][template.number:052]:   Update Interval: 60.0s
+[03:53:01][C][template.binary_sensor:028]: Template Binary Sensor 'Alerte Filtre'
+[03:53:01][C][template.binary_sensor:028]:   Device Class: 'problem'
+[03:53:01][C][template.sensor:022]: Template Sensor 'Temperature Eau'
+[03:53:01][C][template.sensor:022]:   State Class: ''
+[03:53:01][C][template.sensor:022]:   Unit of Measurement: '°C'
+[03:53:01][C][template.sensor:022]:   Accuracy Decimals: 1
+[03:53:01][C][template.sensor:023]:   Update Interval: never
+[03:53:01][D][http_request.arduino:125]: Content-Length: -1
+[03:53:01][W][component:237]: Component mspa_uart took a long time for an operation (442 ms).
+[03:53:01][W][component:238]: Components should block for at most 30 ms.
+[03:53:01][D][switch:012]: 'Chauffage' Turning ON.
+[03:53:01][C][template.switch:068]: Template Switch 'Action Reset Alerte'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:filter-remove'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'consigne_plus'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:plus-circle-outline'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'consigne_moins'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:minus-circle-outline'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'Filtration'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:filter-variant'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'Lien Eedomus'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:cloud-sync'
+[03:53:01][C][template.switch:091]:   Restore Mode: restore defaults to ON
+[03:53:01][C][template.switch:057]:   Optimistic: YES
+[03:53:01][C][template.switch:068]: Template Switch 'Chauffage'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:fire'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'UVC'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:lightbulb-uv'
+[03:53:01][C][template.switch:091]:   Restore Mode: always OFF
+[03:53:01][C][template.switch:057]:   Optimistic: NO
+[03:53:01][C][template.switch:068]: Template Switch 'Verrouillage Clavier'
+[03:53:01][C][template.switch:070]:   Icon: 'mdi:lock'
+[03:53:01][C][template.switch:091]:   Restore Mode: restore defaults to OFF
+[03:53:01][C][template.switch:057]:   Optimistic: YES
+[03:53:01][C][web_server:153]: Web Server:
+[03:53:01][C][web_server:154]:   Address: 192.168.1.226:80
+[03:53:01][C][sntp:042]: SNTP Time:
+[03:53:01][C][sntp:045]:   Server 0: 'pool.ntp.org'
+[03:53:01][C][sntp:045]:   Server 1: 'time.cloudflare.com'
+[03:53:01][C][esphome.ota:073]: Over-The-Air updates:
+[03:53:01][C][esphome.ota:074]:   Address: 192.168.1.226:3232
+[03:53:01][C][esphome.ota:075]:   Version: 2
+[03:53:01][C][safe_mode:018]: Safe Mode:
+[03:53:01][C][safe_mode:020]:   Boot considered successful after 60 seconds
+[03:53:01][C][safe_mode:021]:   Invoke after 10 boot attempts
+[03:53:01][C][safe_mode:023]:   Remain in safe mode for 300 seconds
+[03:53:04][D][switch:012]: 'Chauffage' Turning ON.
+[03:53:04][I][mspa_uart:561][mspa_uart_task]: UI: Filtration -> OFF (Filter: ENV)
+[03:53:04][D][switch:055][mspa_uart_task]: 'Filtration': Sending state OFF
+[03:53:06][D][http_request.arduino:125]: Content-Length: -1
+[03:53:06][W][component:237]: Component mspa_uart took a long time for an operation (595 ms).
+[03:53:06][W][component:238]: Components should block for at most 30 ms.
+[03:53:06][D][switch:012]: 'UVC' Turning ON.
+[03:53:06][I][mspa_uart:561][mspa_uart_task]: UI: UVC -> OFF (Filter: ENV)
+[03:53:06][D][switch:055][mspa_uart_task]: 'UVC': Sending state OFF
+[03:53:06][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 19 Val 01
+[03:53:06][I][mspa_uart:561][mspa_uart_task]: UI: Chauffage -> OFF (Filter: ENV)
+[03:53:06][D][switch:055][mspa_uart_task]: 'Chauffage': Sending state OFF
+[03:53:07][I][mspa_uart:561][mspa_uart_task]: UI: Filtration -> ON (Filter: ENV)
+[03:53:07][D][switch:055][mspa_uart_task]: 'Filtration': Sending state ON
+[03:53:07][I][mspa_uart:561][mspa_uart_task]: UI: UVC -> ON (Filter: ENV)
+[03:53:07][D][switch:055][mspa_uart_task]: 'UVC': Sending state ON
+[03:53:10][D][http_request.arduino:125]: Content-Length: -1
+[03:53:10][W][component:237]: Component mspa_uart took a long time for an operation (382 ms).
+[03:53:10][W][component:238]: Components should block for at most 30 ms.
+[03:53:15][D][http_request.arduino:125]: Content-Length: -1
+[03:53:15][W][component:237]: Component mspa_uart took a long time for an operation (153 ms).
+[03:53:15][W][component:238]: Components should block for at most 30 ms.
+[03:53:16][D][switch:016]: 'Chauffage' Turning OFF.
+[03:53:20][D][http_request.arduino:125]: Content-Length: -1
+[03:53:20][W][component:237]: Component mspa_uart took a long time for an operation (381 ms).
+[03:53:20][W][component:238]: Components should block for at most 30 ms.
+[03:53:20][D][switch:012]: 'Filtration' Turning ON.
+[03:53:26][D][http_request.arduino:125]: Content-Length: -1
+[03:53:26][W][component:237]: Component mspa_uart took a long time for an operation (487 ms).
+[03:53:26][W][component:238]: Components should block for at most 30 ms.
+[03:53:26][D][switch:016]: 'Chauffage' Turning OFF.
+[03:53:30][D][http_request.arduino:125]: Content-Length: -1
+[03:53:30][W][component:237]: Component mspa_uart took a long time for an operation (382 ms).
+[03:53:30][W][component:238]: Components should block for at most 30 ms.
+[03:53:30][D][switch:012]: 'UVC' Turning ON.
+[03:53:36][D][http_request.arduino:125]: Content-Length: -1
+[03:53:36][W][component:237]: Component mspa_uart took a long time for an operation (485 ms).
+[03:53:36][W][component:238]: Components should block for at most 30 ms.
+[03:53:36][D][switch:016]: 'Verrouillage Clavier' Turning OFF.
+[03:53:38][D][switch:012]: 'Filtration' Turning ON.
+[03:53:40][D][http_request.arduino:125]: Content-Length: -1
+[03:53:40][W][component:237]: Component mspa_uart took a long time for an operation (381 ms).
+[03:53:40][W][component:238]: Components should block for at most 30 ms.
+[03:53:40][D][select:062]: 'Mode Bulles' - Setting
+[03:53:40][D][select:115]: 'Mode Bulles' - Set selected option to: Arret
+[03:53:40][D][select:015]: 'Mode Bulles': Sending state Arret (index 0)
+[03:53:44][D][switch:016]: 'Filtration' Turning OFF.
+[03:53:44][D][switch:055]: 'Filtration': Sending state OFF
+[03:53:44][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 02 Val 00
+[03:53:44][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 02 Val 00
+[03:53:46][D][http_request.arduino:125]: Content-Length: -1
+[03:53:46][W][component:237]: Component mspa_uart took a long time for an operation (473 ms).
+[03:53:46][W][component:238]: Components should block for at most 30 ms.
+[03:53:50][I][safe_mode:041]: Boot seems successful; resetting boot loop counter
+[03:53:50][D][esp32.preferences:114]: Saving 1 preferences to flash...
+[03:53:50][D][esp32.preferences:143]: Saving 1 preferences to flash: 0 cached, 1 written, 0 failed
+[03:53:50][D][http_request.arduino:125]: Content-Length: -1
+[03:53:50][W][component:237]: Component mspa_uart took a long time for an operation (210 ms).
+[03:53:50][W][component:238]: Components should block for at most 30 ms.
+[03:53:57][D][http_request.arduino:125]: Content-Length: -1
+[03:53:57][W][component:237]: Component mspa_uart took a long time for an operation (811 ms).
+[03:53:57][W][component:238]: Components should block for at most 30 ms.
+[03:53:57][D][switch:016]: 'Filtration' Turning OFF.
+[03:53:57][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 02 Val 00
+[03:53:57][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 02 Val 00
+[03:53:57][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 02 Val 00
+[03:54:06][D][switch:012]: 'Chauffage' Turning ON.
+[03:54:06][D][switch:055]: 'Chauffage': Sending state ON
+[03:54:06][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 01 Val 01
+[03:54:06][D][http_request.arduino:125]: Content-Length: -1
+[03:54:06][W][component:237]: Component mspa_uart took a long time for an operation (486 ms).
+[03:54:06][W][component:238]: Components should block for at most 30 ms.
+[03:54:06][D][switch:012]: 'Chauffage' Turning ON.
+[03:54:06][I][mspa_uart:112][mspa_uart_task]: Sniper: Injecting CMD 01 Val 01
+[03:54:06][I][mspa_uart:561][mspa_uart_task]: UI: Chauffage -> ON (Filter: ENV)

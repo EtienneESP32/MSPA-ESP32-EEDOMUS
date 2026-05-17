@@ -51,7 +51,6 @@ esphome:
           id(mspa_logic)->set_b_select(id(mode_bulles));
           id(mspa_logic)->set_link_sensor(id(motor_link));
           id(mspa_logic)->set_kbd_link_sensor(id(kbd_link));
-          id(mspa_logic)->set_eedomus_ids(${periph_filtration}, ${periph_chauffage}, ${periph_uvc});
           id(mspa_logic)->set_eedomus_enabled(${eedomus_enabled});
           id(mspa_logic)->set_eedomus_callback([=](int p_id, float p_val, bool p_f) {
             App.scheduler.set_timeout(id(mspa_logic), "push_eedomus", 0, [=]() {
@@ -256,6 +255,18 @@ switch:
       - lambda: 'id(mspa_logic)->control_filtration(true);'
     turn_off_action:
       - lambda: 'id(mspa_logic)->control_filtration(false);'
+    on_turn_on:
+      - lambda: |-
+          if (!id(g_f)) {
+            id(g_f) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 1, false, true);
+          }
+    on_turn_off:
+      - lambda: |-
+          if (id(g_f)) {
+            id(g_f) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_filtration}, 0, false, true);
+          }
 
   - platform: template
     name: "Lien Eedomus"
@@ -276,6 +287,18 @@ switch:
       - lambda: 'id(mspa_logic)->control_heating(true);'
     turn_off_action:
       - lambda: id(mspa_logic)->control_heating(false);
+    on_turn_on:
+      - lambda: |-
+          if (!id(g_h)) {
+            id(g_h) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 1, false, true);
+          }
+    on_turn_off:
+      - lambda: |-
+          if (id(g_h)) {
+            id(g_h) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, 0, false, true);
+          }
   - platform: template
     name: "UVC"
     id: uvc
@@ -285,6 +308,18 @@ switch:
       - lambda: 'id(mspa_logic)->control_uvc(true);'
     turn_off_action:
       - lambda: id(mspa_logic)->control_uvc(false);
+    on_turn_on:
+      - lambda: |-
+          if (!id(g_u)) {
+            id(g_u) = true;
+            id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 1, false, true);
+          }
+    on_turn_off:
+      - lambda: |-
+          if (id(g_u)) {
+            id(g_u) = false;
+            id(mspa_logic)->enqueue_eedomus(${periph_uvc}, 0, false, true);
+          }
   - platform: template
     name: "Verrouillage Clavier"
     id: verrouillage_clavier
@@ -417,10 +452,26 @@ script:
     mode: single
     then:
       - delay: 10s
-      - logger.log: "Synchronisation initiale (Températures seules)..."
+      - logger.log: "Synchronisation initiale (File d'attente intelligente)..."
       - lambda: |-
           id(g_setpoint) = id(consigne_temperature).state;
           id(mspa_logic)->enqueue_eedomus(${periph_consigne_temp}, id(g_setpoint), true, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_f) = id(filtration).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_filtration}, id(g_f) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_h) = id(chauffage).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_chauffage}, id(g_h) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_u) = id(uvc).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_uvc}, id(g_u) ? 1 : 0, false, true);
+      - delay: 1s
+      - lambda: |-
+          id(g_lock) = id(verrouillage_clavier).state;
+          id(mspa_logic)->enqueue_eedomus(${periph_verrouillage}, id(g_lock) ? 1 : 0, false, true);
       - delay: 1s
       - lambda: |-
           int val = (id(mode_bulles).state == "Niveau1")?1:(id(mode_bulles).state == "Niveau2")?2:(id(mode_bulles).state == "Niveau3")?3:0;

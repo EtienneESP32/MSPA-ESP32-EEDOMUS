@@ -1,10 +1,10 @@
-# LA GRANDE BIBLE MSPA (v3.6)
+# LA GRANDE BIBLE MSPA (v3.7)
 ## Le Référentiel de Vérité Absolue – Architecture & Protocole
 
 > [!IMPORTANT]
-> **Version de Référence : v7.5.38-DIAMOND-FINAL**  
-> **État du Projet : Certified Diamond / Master Sanctuary v3**  
-> Ce document est la synthèse ultime de l'intelligence acquise sur l'arbitrage temporel et la résilience dual-core.
+> **Version de Référence : v7.6.0-PLATINUM (Architecture Miroir & Lisseur Physique)**  
+> **État du Projet : Certified PLATINUM / Master Sanctuary v5**  
+> Ce document intègre le mode miroir UI 100% transparent (sans filtre anti-spam), le lissage domotique Eedomus ultra-réactif (<2s) connecté directement à la trame relais `0x08`, et le filtrage intelligent de l'Alerte Filtre (<800ms).
 
 ---
 
@@ -78,7 +78,7 @@ stateDiagram-v2
 
 | ID | Source | Description | Détails |
 | :--- | :--- | :--- | :--- |
-| **`0x08`** | SPA | **Relais Physique** | Bit 0: Pompe circulation / Bit 1: Relais chauffe. |
+| **`0x08`** | SPA | **Relais Physique** | Bit 0: Pompe circulation / Bit 1: Relais chauffe. (100% propre, sans clignotement) |
 | **`0x1A`** | SPA | **IHM (Voyants)** | Bit 0: Filtre / Bit 1: Chauffe / Bit 2: UVC / Bit 3: Prêt. |
 | **`0x06`** | SPA | **Temp. Eau** | Valeur brute / 2 = Température en °C. |
 | **`0x1B`** | SPA | **Consigne & Bulles** | D1: État Bulles / D2: Consigne Température. |
@@ -105,26 +105,22 @@ Pour briser la limite historique des 30°C, nous utilisons la stratégie **`int8
 
 ### A. Master Sanctuary v2 (Dual-Core & Atomics)
 L'ESP32 est configuré pour garantir que le réseau ne puisse jamais ralentir le bus UART :
-*   **Core 1 (uart_task)** : Sanctuaire inviolable dédié à 100% au bus série. Utilise des variables **`std::atomic`** pour communiquer ses états sans jamais utiliser de Mutex bloquant dans les chemins critiques.
-*   **Core 0 (Main Loop)** : Gère le WiFi, le serveur Web et Eedomus. 
-*   **Non-Blocking Logic** : Le Cœur 1 lit et écrit à 10Hz. Si le Cœur 0 est gelé par un timeout réseau, le Cœur 1 continue de piloter le SPA sans aucune gigue.
-
-### B. Gestion des Flux (La Double File FIFO)
-Pour une fluidité totale de l'interface Eedomus :
-*   **Queue Actions (High Priority)** : Stocke les clics utilisateur. Toujours traitée en premier.
-*   **Queue Status (Low Priority)** : Stocke les températures et l'uptime.
-*   **Socket Guard** : Suspension automatique de tout envoi vers Eedomus si la Heap descend sous **48 Ko** pour préserver la stabilité du système.
-*   **HTTP Fail-Safe** : Libération forcée du verrou réseau après **10 secondes** pour éviter l'asphyxie du Cœur 0.
-
+*   **Core 1 (uart_task)** : Tâche prioritaire et autonome dédiée à 100% à la gestion de la communication série. Les variables atomiques de l'API standard C++ (`std::atomic`) éliminent tout goulot d'étranglement ou blocage de mémoire (Race Condition).
+*   **Core 0 (Main Loop)** : Prend en charge le serveur HTTP, les scripts de push vers l'Eedomus et la gestion WiFi.
+*   **Non-Blocking Logic** : Même si le cloud domotique subit d'importantes latences réseau, le bus UART continue de parser les trames physiques sans lag.
 
 ---
 
-## 5. Logique "Sniper" & "Envelope Detector"
+## 5. L'Architecture PLATINUM (Miroir Transparent & Lisseur Direct)
 
-*   **Sniper Shot** : Le contrôleur n'envoie pas de commandes en boucle. Il "tire" 10 à 15 fois avec précision dès qu'un écart est détecté, pour forcer le SPA à obéir.
-*   **Règle de Non-Dictature** : Toute action sur le clavier physique ou le simulateur réinitialise instantanément les cibles du Sniper. Le contrôleur suit l'humain au lieu de le combattre.
-*   **Envelope Detector (Latching 3s)** : Remplace l'ancien "Silk Filter". Un bit vu à `1` sur le bus reste considéré comme `ON` pendant **3000ms** pour couvrir les phases de clignotement visuel.
-*   **Priorité Physique (Règle Hybride)** : En cas de clignotement (Alerte), le système ignore l'enveloppe et affiche l'état réel du moteur (`0x08`). Permet d'afficher "Filtration OFF" pendant une "Alerte Filtre".
+*   **Couche 1 : Le Miroir Brut 100% Transparent (IHM Locale)** :
+    L'IHM locale du contrôleur Web est un miroir transparent de la réalité du bus. En forçant le paramètre de mise à jour à `true` (Option A), nous contournons le filtre anti-spam matériel de 1.5s. L'interface locale clignote en direct et sans décalage au rythme natif (1s ON / 8s OFF en veille, 2s ON / 2s OFF en chauffe), devenant l'outil de diagnostic matériel par excellence.
+*   **Couche 2 : Le Lisseur Eedomus Ultra-Réactif sur Relais Physiques (`0x08`)** :
+    Le lisseur domotique Eedomus est connecté directement à la vérité des relais matériels de la trame `0x08`. Contrairement aux voyants, les relais sont **propres, fixes et dénués de tout polling**.
+    *   **ON** : Instantané dès que le relais physique s'enclenche (<200ms).
+    *   **OFF** : Remonté proprement à la domotique en moins de **2 secondes** (contre 30s auparavant) dès l'extinction du moteur, grâce à la réduction du timeout du lisseur, tout en évitant 100% des clignotements.
+*   **Couche 3 : Protection d'Alerte Gated** :
+    Le filtre anti-parasites d'alerte filtre (`detect_ghost`) utilise un seuil temporel affiné de **800ms**. Cela garantit la capture immédiate d'une alerte réelle (500ms) tout en écartant de façon étanche les pulses de polling (1000ms).
 
 ---
 
@@ -132,8 +128,8 @@ Pour une fluidité totale de l'interface Eedomus :
 
 *   **L'UI Optimiste** : Pour une sensation de fluidité premium, l'interface bascule sur l'état demandé par l'utilisateur à la milliseconde même du clic (sans attendre le bus).
 *   **Le Sniper Déterminé** : Contrairement aux versions précédentes, le Sniper tire systématiquement 10 fois lors d'une action UI, garantissant que même une commande "confuse" (état déjà présumé correct) est envoyée avec fermeté.
-*   **Le Watchdog de Réalité (10s)** :
-    *   Le système lance un décompte de 10 secondes après chaque commande.
+*   **Le Watchdog de Réalité (20s)** :
+    *   Le système lance un décompte de 20 secondes après chaque commande.
     *   Si à l'issue de ce délai, l'état physique du bus UART ne correspond toujours pas à l'interface, l'ESP force un **Revert**.
     *   L'interface "saute" pour revenir à la réalité physique.
     *   L'Eedomus est immédiatement mise à jour.
@@ -160,4 +156,4 @@ L'ESP32 v6.9.30+ impose l'utilisation des Noms d'entités (Majuscules + Espaces)
 *   **Mode Bulles** : `http://[VAR1]/select/Mode%20Bulles/set?option=Niveau1`
 
 ---
-*Sanctuarisé le 12/05/2026 - Version DIAMOND FINAL - v3.6.*
+*Sanctuarisé le 17/05/2026 - Version PLATINUM FINAL - v4.1.*

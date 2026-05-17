@@ -1,0 +1,1 @@
+[01:38:58][I][app:100]: ESPHome version 2024.12.2 compiled on May 17 2026, 01:34:30

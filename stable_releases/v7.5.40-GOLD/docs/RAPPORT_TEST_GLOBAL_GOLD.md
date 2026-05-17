@@ -27,6 +27,22 @@
 | **B2** | Duel de Consigne | Web 28°C vs Simu 26°C | L'arbitrage Diamond détecte le conflit et réaligne le Web sur 26°C. | ✅ OK |
 | **B3** | Non-Dictature | Clic Web ON + Bouton OFF | Le Sniper s'arrête immédiatement dès la détection de l'intention physique. | ✅ OK |
 
+**Note** : Ce rapport valide l'intégrité de la logique d'arbitrage. La version de production sera générée après la bascule des URLs Eedomus en minuscules et la désactivation de la synchronisation par défaut.
+
+---
+---
+## 🌟 ADDENDUM DU 17 MAI 2026 (Nouveau Paradigme : ARCHITECTURE BIBLE V3)
+Suite à l'analyse des logs finaux de PROD, il a été prouvé que les trous aléatoires de 50s étaient une illusion générée par l'ancien filtre d'Enveloppe de 15s. L'architecture BIBLE V3 est une refonte radicale à "Double Vitesse" (Dual-Layer) : un pont matériel 100% transparent pour l'IHM Web, couplé à un Tampon-Lisseur C++ de 20 secondes exclusif à l'Eedomus.
+
+**NOUVELLES VÉRIFICATIONS REQUISES (Face au SIMU v2.0.1-REALITY) :**
+
+| ID | Test | Stimulus | Résultat Attendu | Statut |
+|:---|:---|:---|:---|:---|
+| **V3-1** | **Le Miroir Absolu (IHM)** | Allumage Chauffe | La température du SIMU monte. L'IHM Web du LABO clignote en stricte synchronisation matérielle avec la Chauffe (`2s ON / 2s OFF`). L'Enveloppe 15s a bien disparu. | ⏳ À TESTER |
+| **V3-2** | **Le Bouclier Domotique (20s)** | Observation HTTP en Chauffe | Malgré le clignotement infernal de l'IHM Web, le Core 0 encaisse le trou de 2s et n'envoie qu'**UN SEUL** ordre `ON` stable à Eedomus. Aucun spam réseau. | ⏳ À TESTER |
+| **V3-3** | **Veille, Baisse & Hystérésis** | Le SIMU atteint la consigne | Le SIMU passe en veille (`1s ON / 8s OFF`). Au bout de 20s de veille, le LABO envoie le `OFF` définitif à Eedomus. La température baisse, et le SIMU rallume la chauffe automatiquement à **Consigne - 2.0°C**. | ⏳ À TESTER |
+| **V3-4** | **Découplage Cœur 0 / Cœur 1** | Test de Charge Web | L'IHM clignote. Le tampon C++ de 20s filtre le réseau. Aucune collision (Kernel Panic) ne survient, confirmant que le MITM et l'HTTP sont bien isolés. | ⏳ À TESTER |
+
 ---
 
 ## 3. GROUPE C : GESTION DES ALERTES (F1/F2)
@@ -71,13 +87,13 @@
 
 ---
 
-## 7. GROUPE X : TESTS DE RUPTURE (THÉORIQUES / NON EFFECTUÉS)
+## 7. GROUPE X : TESTS DE RUPTURE (RÉALISÉS & THÉORIQUES)
 *Objectif : Déterminer le point d'effondrement du système (Edge of the Cliff).*
 
-| ID | Test | Méthode | Symptôme de Rupture Attendu | Statut |
+| ID | Test | Méthode | Résultat | Statut |
 |:---|:---|:---|:---|:---|
 | **X1** | **Saturation RAM** | Désactivation Socket Guard + 100 requêtes HTTP | Crash (Hard Reset) si Heap < 20 Ko. | ⚠️ NON FAIT |
-| **X2** | **Surcharge UART** | Bombardement Simu à 100Hz (10ms) | Désynchronisation complète, Buffer Overflow. | ⚠️ NON FAIT |
+| **X2** | **Surcharge UART (Tsunami)** | Bombardement Simu (Bruit aléatoire massif 5000 octets) | Le buffer UART (1024o) purge proprement sans Kernel Panic. Le Core 1 absorbe sans lag. | ✅ OK |
 | **X3** | **Lockdown Core 0** | Boucle infinie forcée sur la boucle principale | Déclenchement du Hardware Watchdog (Reboot). | ⚠️ NON FAIT |
 | **X4** | **Collision Sniper** | 4 injections simultanées en boucle infinie | Corruption des checksums, sécurité SPA active. | ⚠️ NON FAIT |
 

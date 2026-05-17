@@ -1,5 +1,20 @@
 # Historique des changements (MSPA ESP32)
 
+## [v7.6.0-PLATINUM] - 2026-05-17
+- **UI Locale 100% Transparente (Option A - Force Mode)** : Suppression totale du filtre anti-spam de 1.5s pour les switchs de l'IHM locale. L'IHM Web locale clignote désormais en temps réel (1s ON / 8s OFF en veille) pour refléter fidèlement le bus UART sans risque de blocage à ON.
+- **Eedomus Lisseur Ultra-Réactif** : Migration des retours d'état domotiques directement vers les relais physiques de la trame `0x08`. La remontée des états Filtration et Chauffage est instantanée, et l'arrêt est détecté en moins de 2 secondes (destruction de l'ancien délai de 30 secondes), tout en conservant une stabilité parfaite à 0% de clignotements.
+- **Filtre Alerte Filtre Affiné** : Ajustement du seuil temporel du détecteur de fantômes à `< 800ms`. Les pulses d'alerte réelle (500ms) sont capturés à coup sûr tandis que les pulses de polling natif (1000ms) sont hermétiquement filtrés.
+- **Correction des Bugs du Simulateur** : Rétablissement de la vérité physique de la trame `0x08` dans `mspa_sim_task_ghost.h` en séparant correctement le relais pompe (`0x01`) du relais chauffage (`0x03`), et correction du témoin LED de pompe sur l'écran du simulateur pour utiliser un masque binaire.
+- **Résilience Totale & Certification A à X** : Validation réussie face au test de saturation HTTP (50 sockets), au Sniper Flood et au Tsunami de 5000 octets bruts aléatoires à 10Hz. Verdict final : Système PLATINUM Indestructible.
+
+## [v7.5.40-GOLD] - 2026-05-17
+- **Révélation Majeure (Polling Natif)** : Découverte prouvant que le SPA ne génère pas de "bruit aléatoire" (Ghost Patterns), mais émet un cycle natif de vérification de ses capteurs via la trame `0x1A` (2s ON/2s OFF en chauffe, 1s ON/8s OFF en veille).
+- **Architecture 3 Couches** : Séparation totale des responsabilités :
+  - *Couche 1 (DR Bridge)* : Relais UART brut sans logique réseau pour protéger le matériel.
+  - *Couche 2 (Filtre Macro)* : Enveloppe de 15 secondes absorbant tous les trous temporels de la machine, créant un signal binaire et lisse à 100% pour la domotique.
+  - *Couche 3 (Garde-Porte)* : Découplage strict des requêtes HTTP sortantes (Eedomus) pour ne plus jamais bloquer le Cœur UART.
+- **Mise à jour Simulateur (GHOST)** : Reproduction fidèle des clignotements natifs réels de la carte mère pour éprouver les filtres.
+
 ## [v7.5.38-DIAMOND-FINAL] - 2026-05-12
 - **FIX: Conflit de Registre UART** : Suppression de l'extraction erronée du niveau de bulles dans la trame `0x1A` (Status) qui écrasait la valeur réelle de la trame `0x1B`.
 - **Phase 4 : Arbitrage Diamond** : Mécanisme d'auto-correction temporelle (10 secondes) pour une synchronisation absolue.

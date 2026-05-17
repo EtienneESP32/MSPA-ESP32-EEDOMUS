@@ -1,6 +1,6 @@
 substitutions:
-  name: "mspa-sim-v2-0-0-reality"
-  version: "2.0.0-REALITY"
+  name: "mspa-sim-v1-9-0-authentic"
+  version: "1.9.0-AUTHENTIC"
 
 esphome:
   name: ${name}
@@ -125,7 +125,6 @@ wifi:
       manual_ip: { static_ip: 192.168.1.230, gateway: 192.168.1.1, subnet: 255.255.255.0 }
 
 api:
-  reboot_timeout: 0s
 
 ota:
   - platform: esphome
@@ -233,6 +232,17 @@ script:
       - delay: 10s
       - lambda: |-
           if (!id(sim_filt_active) && id(sim_heat_phase) == 0 && id(sim_uvc_phase) == 0) id(sim_relay) = 0x00;
+  - id: script_chaos
+    mode: single
+    then:
+      - while:
+          condition:
+            lambda: 'return id(sw_chaos).state;'
+          then:
+            - lambda: |-
+                uint8_t rnd = (uint8_t)(esp_random() % 256);
+                id(uart_kbd).write_byte(rnd);
+            - delay: 100ms
 
 interval:
   - interval: 5s
@@ -307,7 +317,26 @@ button:
       - lambda: |-
           id(sim_filter_alert) = !id(sim_filter_alert);
           if (id(sim_filter_alert)) { id(sim_filt_active)=false; id(sim_heat_phase)=0; id(sim_uvc_phase)=0; id(sim_relay)=0x00; }
+  - platform: template
+    name: "ACTION: Bruit UART (10 octets)"
+    id: action_bruit_uart
+    on_press:
+      - lambda: |-
+          for (int i=0; i<10; i++) {
+            uint8_t rnd = (uint8_t)(esp_random() % 256);
+            id(uart_kbd).write_byte(rnd);
+          }
+
 switch:
+  - platform: template
+    name: "MODE CHAOS (Bruit Continu)"
+    id: sw_chaos
+    optimistic: true
+    on_turn_on:
+      - script.execute: script_chaos
+    on_turn_off:
+      - script.stop: script_chaos
+
   - platform: template
     name: "MIROIR: Chauffe"
     id: sw_icon_heat
@@ -326,19 +355,6 @@ switch:
     optimistic: true
 
 text_sensor:
-  - platform: template
-    name: "Uptime"
-    id: txt_uptime
-    icon: "mdi:timer-outline"
-    update_interval: 60s
-    lambda: |-
-      uint32_t s = millis() / 1000;
-      uint32_t j = s / 86400; s %= 86400;
-      uint32_t h = s / 3600;  s %= 3600;
-      uint32_t m = s / 60;    s %= 60;
-      char buf[32];
-      snprintf(buf, sizeof(buf), "%dd %02dh %02dm %02ds", j, h, m, s);
-      return std::string(buf);
   - platform: template
     name: "BULLLES: Niveau"
     id: sim_bubbles_txt
