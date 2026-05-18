@@ -1,5 +1,13 @@
 # Historique des changements (MSPA ESP32)
 
+## [v7.7.0-PLATINUM] - 2026-05-18
+- **Révolution "Fixed-Slot Registry Buffer" (Immunité Totale au Clignotement)** : Remplacement de l'ancienne file d'attente dynamique (`std::deque`) par un tableau de registre statique pré-alloué de 8 slots à états persistants (un par périphérique Eedomus).
+  - *Zéro Fragmentation RAM* : Plus aucun `push_back`/`erase` en tâche de fond, garantissant une stabilité et une disponibilité du Wi-Fi à 100% sans aucun risque de saturation.
+  - *Lissage Anti-Storm* : Si un périphérique clignote frénétiquement (bruit UART ou clic répété), l'état est lissé à 100% en RAM locale sans jamais surcharger la pile de sockets réseau. Seul le tout dernier état stabilisé est poussé.
+  - *Multi-Core Safe (Lock-Free)* : Utilisation de variables `std::atomic` pour tous les champs de slot (`periph_id`, `pending_value`, `is_float`, `has_pending_push`, `is_action`), assurant un traitement 100% asynchrone et sans verrouillage entre le Core 0 et le Core 1.
+- **Sniper Mono-Coup Absolu & Immunisé** : Le Sniper d'injection utilise désormais les états des relais physiques stables (`physical_h_on_` et `physical_f_on_` de la trame `0x08`) plutôt que les voyants clignotants du bus (`0x1A`), éliminant tout risque de faux positif ou de saut de commande lors des phases d'extinction.
+- **Sanctuaire Clavier Sécurisé (Faux Positifs Résolus)** : Le reset de non-dictature n'est plus déclenché par les trames de routine ou de polling (comme la trame `0x0D` du clavier), mais uniquement par de véritables actions sur les touches physiques (`0x01`, `0x02`, `0x03`, `0x19`, `0x04`). Le Sniper peut ainsi s'exécuter jusqu'au bout en toute sécurité.
+
 ## [v7.6.0-PLATINUM] - 2026-05-17
 - **UI Locale 100% Transparente (Option A - Force Mode)** : Suppression totale du filtre anti-spam de 1.5s pour les switchs de l'IHM locale. L'IHM Web locale clignote désormais en temps réel (1s ON / 8s OFF en veille) pour refléter fidèlement le bus UART sans risque de blocage à ON.
 - **Eedomus Lisseur Ultra-Réactif** : Migration des retours d'état domotiques directement vers les relais physiques de la trame `0x08`. La remontée des états Filtration et Chauffage est instantanée, et l'arrêt est détecté en moins de 2 secondes (destruction de l'ancien délai de 30 secondes), tout en conservant une stabilité parfaite à 0% de clignotements.

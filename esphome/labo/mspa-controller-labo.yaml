@@ -1,10 +1,10 @@
-# Controleur MSPA – Version 7.6.0-PLATINUM
-# [EVOLUTION] Phase 4: Hierarchie Logique (Maitre-Esclave) & Filtre Anti-Rebond Absolu
+# Controleur MSPA – Version 7.7.0-PLATINUM
+# [EVOLUTION] Phase 5: Registre de Slots Fixes & Immunité Totale au Clignotement
 # [LOGIQUE] Flux Action (Front) / Flux Status (Back)
-# [DATE] 17/05/2026
+# [DATE] 18/05/2026
 
 substitutions:
-  mspa_version: "7.6.0-PLATINUM"
+  mspa_version: "7.7.0-PLATINUM"
   eedomus_enabled: "true"
   eedomus_host: !secret eedomus_host
   eedomus_api_user: !secret eedomus_api_user

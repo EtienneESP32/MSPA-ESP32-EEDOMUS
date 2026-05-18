@@ -21,10 +21,12 @@ namespace mspa {
 
 static const char *const TAG = "mspa_uart";
 
-struct EedomusRequest {
-  int periph_id;
-  float value;
-  bool is_float;
+struct EedomusSlot {
+  std::atomic<int> periph_id{0};
+  std::atomic<float> pending_value{0.0f};
+  std::atomic<bool> is_float{false};
+  std::atomic<bool> has_pending_push{false};
+  std::atomic<bool> is_action{false};
 };
 
 class MSPAUartComponent : public Component {
@@ -87,30 +89,30 @@ public:
   std::atomic<uint32_t> last_f_cmd_ms_{0}, last_h_cmd_ms_{0}, last_u_cmd_ms_{0},
       last_b_cmd_ms_{0};
 
+  static const size_t NUM_EEDOMUS_SLOTS = 8;
+  EedomusSlot eedomus_slots_[NUM_EEDOMUS_SLOTS];
+
   void enqueue_eedomus(int p_id, float val, bool is_f, bool force = false) {
-    if (!eedomus_enabled_.load())
+    if (!eedomus_enabled_.load() || p_id <= 0)
       return;
 
-    // --- DÉDOUBLONNAGE INTELLIGENT (Nettoie les deux files) ---
-    auto clear_from = [&](std::deque<EedomusRequest> &q) {
-      for (auto it = q.begin(); it != q.end(); ++it) {
-        if (it->periph_id == p_id) {
-          q.erase(it);
-          return;
+    for (size_t i = 0; i < NUM_EEDOMUS_SLOTS; ++i) {
+      int current_id = eedomus_slots_[i].periph_id.load();
+      if (current_id == p_id || current_id == 0) {
+        int expected = 0;
+        if (current_id == 0) {
+          if (!eedomus_slots_[i].periph_id.compare_exchange_strong(expected, p_id)) {
+            continue; // Slot pris par un autre core, on passe au suivant
+          }
         }
+        eedomus_slots_[i].pending_value.store(val);
+        eedomus_slots_[i].is_float.store(is_f);
+        if (force) {
+          eedomus_slots_[i].is_action.store(true);
+        }
+        eedomus_slots_[i].has_pending_push.store(true);
+        return;
       }
-    };
-    clear_from(queue_actions_);
-    clear_from(queue_status_);
-
-    if (force) {
-      if (queue_actions_.size() > 10)
-        queue_actions_.pop_front();
-      queue_actions_.push_back({p_id, val, is_f});
-    } else {
-      if (queue_status_.size() > 15)
-        queue_status_.pop_front();
-      queue_status_.push_back({p_id, val, is_f});
     }
   }
 
@@ -143,11 +145,18 @@ public:
   }
 
   void setup() override {
-    ESP_LOGI(TAG, "Démarrage MSPA Logic GOLD-V4 (Hierarchie Maître-Esclave)");
+    ESP_LOGI(TAG, "Démarrage MSPA Logic PLATINUM-V5 (Slots Fixes)");
     // Reset complet du lisseur Eedomus (anti-OTA-stale-state)
     e_state_f_ = false; e_state_h_ = false; e_state_u_ = false;
     e_last_off_f_ = 0;  e_last_off_h_ = 0;  e_last_off_u_ = 0;
     last_on_f_ = 0;     last_on_h_ = 0;     last_on_u_ = 0;
+    for (size_t i = 0; i < NUM_EEDOMUS_SLOTS; ++i) {
+      eedomus_slots_[i].periph_id.store(0);
+      eedomus_slots_[i].pending_value.store(0.0f);
+      eedomus_slots_[i].is_float.store(false);
+      eedomus_slots_[i].has_pending_push.store(false);
+      eedomus_slots_[i].is_action.store(false);
+    }
     uart_mutex_ = xSemaphoreCreateRecursiveMutex();
     if (uart_mutex_ != NULL) {
       xTaskCreatePinnedToCore(MSPAUartComponent::uart_task_static,
@@ -212,7 +221,7 @@ public:
         last_debug = now;
     }
 
-    // Eedomus Dispatcher (Core 0 - Stratégie Priorisée FIFO)
+    // Eedomus Dispatcher (Core 0 - Stratégie Priorisée Slots)
     if (eedomus_enabled_.load() && !http_busy_.load() &&
         (now - last_http_ms_ > 200)) {
 
@@ -226,25 +235,46 @@ public:
           last_heap_warn = now;
         }
       } else {
-        EedomusRequest req;
-        bool found = false;
+        int best_slot_idx = -1;
+        bool has_action = false;
 
-        if (!queue_actions_.empty()) {
-          req = queue_actions_.front();
-          queue_actions_.pop_front();
-          found = true;
-        } else if (!queue_status_.empty()) {
-          req = queue_status_.front();
-          queue_status_.pop_front();
-          found = true;
+        // 1. Scan for priority actions first
+        for (size_t i = 0; i < NUM_EEDOMUS_SLOTS; ++i) {
+          if (eedomus_slots_[i].periph_id.load() > 0 && 
+              eedomus_slots_[i].has_pending_push.load() &&
+              eedomus_slots_[i].is_action.load()) {
+            best_slot_idx = (int)i;
+            has_action = true;
+            break;
+          }
         }
 
-        if (found) {
+        // 2. If no action, scan for regular status updates
+        if (!has_action) {
+          for (size_t i = 0; i < NUM_EEDOMUS_SLOTS; ++i) {
+            if (eedomus_slots_[i].periph_id.load() > 0 && 
+                eedomus_slots_[i].has_pending_push.load()) {
+              best_slot_idx = (int)i;
+              break;
+            }
+          }
+        }
+
+        if (best_slot_idx != -1) {
           last_http_ms_ = now;
           last_http_start_ms_ = now;
+          
+          int p_id = eedomus_slots_[best_slot_idx].periph_id.load();
+          float val = eedomus_slots_[best_slot_idx].pending_value.load();
+          bool is_f = eedomus_slots_[best_slot_idx].is_float.load();
+
+          // Reset status flags for this slot
+          eedomus_slots_[best_slot_idx].has_pending_push.store(false);
+          eedomus_slots_[best_slot_idx].is_action.store(false);
+
           if (eedomus_callback_) {
             set_http_busy(true);
-            eedomus_callback_(req.periph_id, req.value, req.is_float);
+            eedomus_callback_(p_id, val, is_f);
           }
         }
       }
@@ -254,7 +284,8 @@ public:
   // --- ACTIONS MAITRES (Reset Logic & Hierarchie) ---
   void control_filtration(bool state) {
     target_f_ = state;
-    retry_f_ = 10;
+    retry_f_ = 1;
+    last_sniper_f_ms_ = 0;
     is_blinking_f_ = false;
     last_f_change_ms_ = millis() - 2000;
     last_f_cmd_ms_ = millis();
@@ -280,7 +311,8 @@ public:
   }
   void control_heating(bool state) {
     target_h_ = state;
-    retry_h_ = 10;
+    retry_h_ = 1;
+    last_sniper_h_ms_ = 0;
     is_blinking_h_ = false;
     last_h_change_ms_ = millis() - 2000;
     last_h_cmd_ms_ = millis();
@@ -300,7 +332,8 @@ public:
   }
   void control_uvc(bool state) {
     target_u_ = state;
-    retry_u_ = 10;
+    retry_u_ = 1;
+    last_sniper_u_ms_ = 0;
     last_u_change_ms_ = millis() - 2000;
     last_u_cmd_ms_ = millis();
     if (!state) {
@@ -319,7 +352,8 @@ public:
   }
   void control_bubbles(int level) {
     target_b_ = level;
-    retry_b_ = 10;
+    retry_b_ = 1;
+    last_sniper_b_ms_ = 0;
     last_b_change_ms_ = millis() - 2000;
     last_b_cmd_ms_ = millis();
     if (b_select_) {
@@ -348,8 +382,8 @@ protected:
   uint32_t last_http_ms_{0}, last_http_start_ms_{0};
   uint32_t last_f_change_ms_{0}, last_h_change_ms_{0}, last_u_change_ms_{0},
       last_b_change_ms_{0}, last_set_change_ms_{0};
-  std::deque<EedomusRequest> queue_actions_;
-  std::deque<EedomusRequest> queue_status_;
+  uint32_t last_sniper_f_ms_{0}, last_sniper_h_ms_{0}, last_sniper_u_ms_{0},
+      last_sniper_b_ms_{0};
   std::function<void(int, float, bool)> eedomus_callback_;
 
   uint8_t kbd_buf_[10], kbd_idx_{0};
@@ -389,13 +423,13 @@ protected:
     // Sniper (Lock minimal uniquement sur l'écriture vers SPA)
     if (is_sync_.load()) {
       if (retry_f_.load() > 0) {
-        if (inject_cmd(0x01, target_f_.load() ? 0x01 : 0x00))
+        if (inject_cmd(0x02, target_f_.load() ? 0x01 : 0x00))
           retry_f_--;
       } else if (retry_h_.load() > 0) {
         if (inject_cmd(0x01, target_h_.load() ? 0x01 : 0x00))
           retry_h_--;
       } else if (retry_u_.load() > 0) {
-        if (inject_cmd(0x01, target_u_.load() ? 0x01 : 0x00))
+        if (inject_cmd(0x19, target_u_.load() ? 0x01 : 0x00))
           retry_u_--;
       } else if (retry_b_.load() > 0) {
         if (inject_cmd(0x03, (uint8_t)target_b_.load()))
@@ -465,14 +499,18 @@ protected:
 
     if (!from_spa) {
       // PHASE 1: NON-DICTATURE (Priorité Utilisateur)
-      target_f_ = real_f_.load();
-      target_h_ = real_h_.load();
-      target_u_ = real_u_.load();
-      target_b_ = (int)real_b_.load();
-      retry_f_ = 0;
-      retry_h_ = 0;
-      retry_u_ = 0;
-      retry_b_ = 0;
+      // On n'annule le sniper que sur une vraie commande de contrôle physique
+      if (id == 0x01 || id == 0x02 || id == 0x03 || id == 0x19 || id == 0x04) {
+        ESP_LOGI(TAG, "Sanctuaire Clavier: Pression physique detectee (ID %02X). Annulation du Sniper.", id);
+        target_f_ = real_f_.load();
+        target_h_ = real_h_.load();
+        target_u_ = real_u_.load();
+        target_b_ = (int)real_b_.load();
+        retry_f_ = 0;
+        retry_h_ = 0;
+        retry_u_ = 0;
+        retry_b_ = 0;
+      }
       return;
     }
 
@@ -557,12 +595,17 @@ protected:
       }
     }
     if (id == 0x06 || id == 0x1B || id == 0x1A) {
-      check_sniper(target_f_, bus_f_, retry_f_, 0x02);
-      check_sniper(target_h_, bus_h_, retry_h_, 0x01);
-      check_sniper(target_u_, bus_u_, retry_u_, 0x19);
+      check_sniper(target_f_, physical_f_on_, retry_f_, 0x02, last_sniper_f_ms_);
+      check_sniper(target_h_, physical_h_on_, retry_h_, 0x01, last_sniper_h_ms_);
+      check_sniper(target_u_, bus_u_, retry_u_, 0x19, last_sniper_u_ms_);
       if (target_b_.load() != bus_b_.load() && retry_b_.load() > 0) {
-        if (inject_cmd(0x03, (uint8_t)target_b_.load()))
-          retry_b_--;
+        uint32_t now = millis();
+        if (now - last_sniper_b_ms_ >= 12000) {
+          if (inject_cmd(0x03, (uint8_t)target_b_.load())) {
+            retry_b_--;
+            last_sniper_b_ms_ = now;
+          }
+        }
       }
       if (retry_reset_.load() > 0) {
         if (inject_cmd(0x02, 0x01))
@@ -645,10 +688,16 @@ protected:
   }
 
   void check_sniper(std::atomic<bool> &target, std::atomic<bool> &bus,
-                    std::atomic<uint8_t> &retry, uint8_t cmd) {
-    if (target.load() != bus.load() && retry > 0) {
-      if (inject_cmd(cmd, target.load() ? 0x01 : 0x00))
-        retry--;
+                    std::atomic<uint8_t> &retry, uint8_t cmd, uint32_t &last_inject_ms, uint32_t cooldown_ms = 12000) {
+    uint32_t now = millis();
+    if (target.load() != bus.load() && retry.load() > 0) {
+      if (now - last_inject_ms >= cooldown_ms) {
+        if (inject_cmd(cmd, target.load() ? 0x01 : 0x00)) {
+          retry--;
+          last_inject_ms = now;
+          ESP_LOGI(TAG, "Sniper: Commande injectee avec succes pour CMD %02X. Retries restants : %u", cmd, retry.load());
+        }
+      }
     }
   }
 };
